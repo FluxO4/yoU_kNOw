@@ -9894,7 +9894,6 @@ MonoBehaviour:
   IsGameOver: 0
   LocalPlayer: {fileID: 0}
   players: []
-  finishedPlayers: 
   settings: 
   cardFrequencies: 010000000200000002000000020000000200000002000000020000000200000002000000020000000200000002000000020000000100000001000000
   turn: 0
@@ -16464,7 +16463,7 @@ MonoBehaviour:
   - {fileID: 935058568}
   - {fileID: 1899701260}
   - {fileID: 1325420891}
-  passButton: {fileID: 1594462227}
+  passButton: {fileID: 0}
 --- !u!4 &1237131630
 Transform:
   m_ObjectHideFlags: 0
