@@ -1,0 +1,600 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using Mirror;
+using UnityEngine.UI;
+
+public class Gameplay : NetworkBehaviour
+{
+    static Gameplay _current;
+    public static Gameplay current
+    {
+        get
+        {
+            if (_current == null)
+                Debug.Log(typeof(Gameplay) + " NOT FOUND");
+
+            return _current;
+        }
+    }
+
+    private void Awake()
+    {
+        _current = this as Gameplay;
+    }
+
+    //Physics
+    [Range(10, 100)]
+    public int CardSpeedMultiplier = 80;
+    public int MinimumPlayersForGame = 1;
+    public List<GameObject> tableCardsR;
+
+    //UI
+    public GameObject StartPanel;
+    public GameObject GameOverPanel;
+    public Text PlayerNameText;
+    public Text WinnerNameText;
+    public Text NeedToDraw;
+
+
+    //Base flags
+    public bool GameInProgress;
+    public bool IsGameOver;
+
+
+    //Players
+    public Player LocalPlayer;
+    public List<Player> players;
+
+    public int getRandomCard
+    {
+        get
+        {
+            int temp = Random.Range(0, 45);
+            if (temp == 44)
+            {
+                temp = 43;
+            }
+            if (temp == 45)
+            {
+                temp = 42;
+            }
+            return temp;
+        }
+    }
+
+
+    //SyncVars
+    [SyncVar]
+    public int cardOnTable = -1;
+
+    [SyncVar]
+    public int turn = 0;
+
+    [SyncVar]
+    public int needToDraw = 0; //Whoever's turn is next needs to draw this many cards in order to pass the turn
+
+    [SyncVar]
+    public int turnDirection = 1; //1 is clockwise
+
+
+    void Update()
+    {
+        if (NetworkManager.singleton.isNetworkActive)
+        {
+            GameReadyCheck();
+            GameOverCheck();
+
+            if (LocalPlayer == null)
+            {
+                FindLocalPlayer();
+            }
+        }
+        else
+        {
+            //Cleanup state once network goes offline
+            //IsGameReady = false;
+            GameInProgress = false;
+            LocalPlayer = null;
+            players.Clear();
+            cardOnTable = -1;
+            turn = 0;
+            needToDraw = 0;
+            turnDirection = 1;
+        }
+    }
+
+    private void Start()
+    {
+        Physics.gravity = new Vector3(0,-20,0);
+    }
+
+    [Command(ignoreAuthority = true)]
+    public void CmdStartGame()
+    {
+        if (GameInProgress)
+        {
+            return;
+        }
+        Debug.Log("Reached CmdSTartGame");
+        RpcSetGameUI();
+
+        needToDraw = 0;
+        GameInProgress = true;
+
+        RpcSetPlayerHands();
+        REShuffleAndDistributeCards();
+    }
+
+    [ClientRpc]
+    public void RpcSetGameUI()
+    {
+        UIController.current.setGameUI();
+    }
+
+    public void StartGame()
+    {
+        CmdStartGame();
+        Debug.Log("Reached STartGame");
+    }
+
+
+
+    void REShuffleAndDistributeCards()
+    {
+        foreach (Player t in players)
+        {
+            t.RpcGameStartSetup();
+        }
+
+        cardOnTable = getRandomCard;
+        RpcSelectFirstCard();
+
+        turn = Random.Range(0, players.Count - 1);
+        Debug.Log("TURN IS " + turn);
+        players[turn].myturn = true;
+        //RpcSetNeedToDrawText();
+    }
+
+    [ClientRpc]
+    void RpcSelectFirstCard()
+    {
+        GameObject tcard = Instantiate(Sceneobjects.current.cardR);
+        tcard.transform.position = new Vector3(0, 5, 0);
+        Card tcardp = tcard.GetComponent<Card>();
+        tcardp.Value = cardOnTable;
+        tcard.name = tcardp.Value.ToString();
+        tableCardsR.Add(tcard);
+    }
+
+
+    /*
+    [Command(ignoreAuthority = true)]
+    public void CmdSetNeedToDrawText()
+    {
+        RpcSetNeedToDrawText();
+    }
+
+    [ClientRpc]
+    public void RpcSetNeedToDrawText()
+    {
+        if (needToDraw == 0)
+        {
+            NeedToDraw.text = players[turn].playerName + "'s turn";
+        }
+        else if (needToDraw == 1)
+        {
+            NeedToDraw.text = players[turn].playerName + "'s turn, needs to draw " + needToDraw.ToString() + " card";
+        }
+        else
+        {
+            NeedToDraw.text = players[turn].playerName + "'s turn, needs to draw " + needToDraw.ToString() + " cards";
+        }
+    }
+    */
+
+    [Command(ignoreAuthority = true)]
+    public void CmdClearBottomCardsOnTable()
+    {
+        RpcClearBottomCardsOnTable();
+    }
+
+    [ClientRpc]
+    public void RpcClearBottomCardsOnTable()
+    {
+        if(tableCardsR.Count >= 4)
+        {
+
+            Destroy(tableCardsR[0]);
+            tableCardsR.RemoveAt(0);
+            //for(int i = 0; i < 1; i++)
+            /*{
+                int valueInConcern = cardsOnTable[cardsOnTable.Count - 1];
+                cardsOnTable.RemoveAt(cardsOnTable.Count - 1);
+                for (int ii = 0; ii < tableCardsR.Count; ii++)
+                {
+                    if (int.Parse(tableCardsR[ii].name) == valueInConcern)
+                    {
+                        Destroy(tableCardsR[ii]);
+                        tableCardsR.RemoveAt(ii);
+                        break;
+                    }
+                }
+            }*/
+        }
+    }
+
+
+    [Server]
+    public void PassTurnToNextPlayer(int drawCards = 0, int skip = 0, int reverse=0)
+    {
+        if (reverse != 0)
+        {
+            for (int i = 0; i < reverse; i++)
+            {
+                turnDirection = -turnDirection;
+            }
+        }
+        turn += turnDirection;
+        needToDraw += drawCards;
+        if(needToDraw == 1)
+        {
+            needToDraw = 0;
+        }
+
+        if (turn >= players.Count)
+        {
+            turn = 0;
+        }
+        if (turn < 0)
+        {
+            turn = players.Count -1;
+        }
+
+        if (skip != 0)
+        {
+            for (int i = 0; i < skip; i++)
+            {
+                turn += turnDirection;
+                if (turn >= players.Count)
+                {
+                    turn = 0;
+                }
+                if (turn < 0)
+                {
+                    turn = players.Count - 1;
+                }
+            }
+        }
+
+        for (int i = 0; i < players.Count; i++)
+        {
+            if(i == turn)
+            {
+                players[i].myturn = true;
+                if (needToDraw == 0 && !players[i].checkIfAnyMoveIsLegal())
+                {
+                    needToDraw = 1;
+
+                }
+
+            }
+            else
+            {
+                players[i].myturn = false;
+
+            }
+        }
+        //RpcSetNeedToDrawText();
+        RpcUpdatePlayerNames();
+    }
+
+
+    [ClientRpc]
+    public void RpcUpdatePlayerNames()
+    {
+        for (int i = 0; i < players.Count; i++)
+        {
+            if (players[i].myturn)
+            {
+                if (needToDraw > 0)
+                {
+                    players[i].myNameText.text = players[i].playerName + " (+" + needToDraw.ToString() + ")";
+                }
+                else
+                {
+                    players[i].myNameText.text = players[i].playerName;
+                }
+                players[i].myNameTag.color = Sceneobjects.current.selectedNameColour;
+            }
+            else
+            {
+                players[i].myNameText.text = players[i].playerName;
+                players[i].myNameTag.color = Sceneobjects.current.unselectedNameColour;
+
+            }
+        }
+    }
+
+
+    /*void prepareHandPositions()
+    {
+
+        /*float Cameradistance = Camera.main.transform.position.y / (Mathf.Sin(Camera.main.transform.eulerAngles.x));
+        Vector3 pos = Camera.main.ScreenToWorldPoint(new Vector3(0, Screen.height *0.5f, Cameradistance));
+        float pposz = Sceneobjects.current.Hands[2].transform.position.z;
+        Sceneobjects.current.Hands[2].transform.position = new Vector3(pos.x, 0, pposz);
+
+        pos = Camera.main.ScreenToWorldPoint(new Vector3(Screen.width, Screen.height * 0.5f, Cameradistance));
+        pposz = Sceneobjects.current.Hands[3].transform.position.z;
+        Sceneobjects.current.Hands[3].transform.position = new Vector3(pos.x, 0, pposz);////
+
+        for(int i = 0; i < 4; i++)
+        {
+            Transform temp = Sceneobjects.current.Hands[i];
+            for(int ii = 0; ii < temp.childCount; ii++)
+            {
+                Destroy(temp.GetChild(ii).gameObject);
+            }
+
+        }
+
+    }*/
+
+
+    [ClientRpc]
+    public void RpcSetPlayerHands()
+    {
+        //LocalPlayer.hand = Sceneobjects.current.Hands[1];
+        //return;
+
+        int myIndex = players.IndexOf(LocalPlayer);
+        if(players.Count == 1)
+        {
+            LocalPlayer.hand = Sceneobjects.current.Hands[0];
+            LocalPlayer.myNameTag = Sceneobjects.current.Names[0];
+            LocalPlayer.myNameText = Sceneobjects.current.NameTexts[0];
+            LocalPlayer.myNameText.text = LocalPlayer.playerName;
+        }
+        else
+        if(players.Count == 2)
+        {
+            Sceneobjects.current.Names[1].gameObject.SetActive(false);
+            Sceneobjects.current.Names[3].gameObject.SetActive(false);
+
+            for (int i = 0; i < 2; i++)
+            {
+                if(i == myIndex)
+                {
+                    players[i].hand = Sceneobjects.current.Hands[0];
+                    players[i].myNameTag = Sceneobjects.current.Names[0];
+                    players[i].myNameText = Sceneobjects.current.NameTexts[0];
+                    players[i].myNameText.text = players[i].playerName;
+                }
+                else
+                {
+                    players[i].hand = Sceneobjects.current.Hands[2];
+                    players[i].myNameTag = Sceneobjects.current.Names[2];
+                    players[i].myNameText = Sceneobjects.current.NameTexts[2];
+                    players[i].myNameText.text = players[i].playerName;
+
+                }
+            }
+        }
+        else
+        if (players.Count == 3)
+        {
+            Sceneobjects.current.Names[2].gameObject.SetActive(false);
+
+            for (int i = 0; i < 3; i++)
+            {
+                if (i == myIndex)
+                {
+                    players[i].hand = Sceneobjects.current.Hands[0];
+                    players[i].myNameTag = Sceneobjects.current.Names[0];
+                    players[i].myNameText = Sceneobjects.current.NameTexts[0];
+                    players[i].myNameText.text = players[i].playerName;
+                }else
+                if (i == (myIndex + 1) % 3)
+                {
+                    players[i].hand = Sceneobjects.current.Hands[1];
+                    players[i].myNameTag = Sceneobjects.current.Names[1];
+                    players[i].myNameText = Sceneobjects.current.NameTexts[1];
+                    players[i].myNameText.text = players[i].playerName;
+                }else
+                if (i == (myIndex + 2) % 3)
+                {
+                    players[i].hand = Sceneobjects.current.Hands[3];
+                    players[i].myNameTag = Sceneobjects.current.Names[3];
+                    players[i].myNameText = Sceneobjects.current.NameTexts[3];
+                    players[i].myNameText.text = players[i].playerName;
+                }
+            }
+
+        }else if(players.Count == 4)
+        {
+            for (int i = 0; i < 4; i++)
+            {
+                if (i == myIndex)
+                {
+                    players[i].hand = Sceneobjects.current.Hands[0];
+                    players[i].myNameTag = Sceneobjects.current.Names[0];
+                    players[i].myNameText = Sceneobjects.current.NameTexts[0];
+                    players[i].myNameText.text = players[i].playerName;
+                }
+                else
+                if (i == (myIndex + 1) % 4)
+                {
+                    players[i].hand = Sceneobjects.current.Hands[1];
+                    players[i].myNameTag = Sceneobjects.current.Names[1];
+                    players[i].myNameText = Sceneobjects.current.NameTexts[1];
+                    players[i].myNameText.text = players[i].playerName;
+                }
+                else
+                if (i == (myIndex + 2) % 4)
+                {
+                    players[i].hand = Sceneobjects.current.Hands[2];
+                    players[i].myNameTag = Sceneobjects.current.Names[2];
+                    players[i].myNameText = Sceneobjects.current.NameTexts[2];
+                    players[i].myNameText.text = players[i].playerName;
+                }
+                else
+                if (i == (myIndex + 3) % 4)
+                {
+                    players[i].hand = Sceneobjects.current.Hands[3];
+                    players[i].myNameTag = Sceneobjects.current.Names[3];
+                    players[i].myNameText = Sceneobjects.current.NameTexts[3];
+                    players[i].myNameText.text = players[i].playerName;
+                }
+            }
+        }
+
+    }
+
+
+
+    void GameReadyCheck()
+    {
+        if (!GameInProgress)
+        {
+            foreach (KeyValuePair<uint, NetworkIdentity> kvp in NetworkIdentity.spawned)
+            {
+                Player comp = kvp.Value.GetComponent<Player>();
+
+                //Add if new
+                if (comp != null && !players.Contains(comp))
+                {
+                    players.Add(comp);
+                    comp.myID = players.Count - 1;
+                }
+            }
+           
+            UIController.current.updatePlayerList();
+        }
+    }
+
+    void GameOverCheck()
+    {
+        /*if (!IsGameReady)
+            return;*/
+
+        //Cant win a game you play by yourself. But you can still use this example for testing network/movement
+        if (players.Count == 1)
+            return;
+
+        int alivePlayerCount = 0;
+        foreach (Player t in players)
+        {
+            if (!t.hasFinished)
+            {
+                alivePlayerCount++;
+
+                //If there is only 1 player left alive this will end up being their name
+                WinnerNameText.text = t.playerName;
+            }
+        }
+
+        if (alivePlayerCount == 1)
+        {
+            IsGameOver = true;
+            GameOverPanel.SetActive(true);
+            //DisallowTankMovement();
+        }
+    }
+
+    void FindLocalPlayer()
+    {
+        //Check to see if the player is loaded in yet
+        if (ClientScene.localPlayer == null)
+            return;
+
+        LocalPlayer = ClientScene.localPlayer.GetComponent<Player>();
+        //ReadyButtonHandler();
+    }
+
+
+    public void ReadyButtonHandler()
+    {
+        LocalPlayer.SendReadyToServer(PlayerNameText.text);
+    }
+
+    public void PassButtonHandler()
+    {
+        if (LocalPlayer.myturn)
+        {
+            LocalPlayer.Pass();
+        }
+    }
+
+
+    public int getCardValue(int t)
+    {
+        int num = 0;
+        if (t > 43)
+        {
+            t = 43;
+        }
+        else if (t < 0)
+        {
+            t = 0;
+        }
+
+        if (t >= 42)
+        {
+            if (t == 42)
+            {
+                num = 0;
+            }
+            else
+            {
+                num = 13; //draw 4
+            }
+        }
+        else
+        {
+            num = t % 13;
+        }
+        return num;
+    }
+
+    public int getCardColour(int t)
+    {
+        int colour;
+        if (t > 43)
+        {
+            t = 43;
+        }
+        else if (t < 0)
+        {
+            t = 0;
+        }
+
+        if (t >= 42)
+        {
+            colour = 4;
+        }
+        else
+        {
+            colour = ((int)(t / 13));
+        }
+        return colour;
+    }
+
+    //All players are ready and game has started. Allow players to move.
+    /*void AllowTankMovement()
+    {
+        foreach (Player t in players)
+        {
+            t.allowMovement = true;
+        }
+    }
+
+    //Game is over. Prevent movement
+    void DisallowTankMovement()
+    {
+        foreach (Player t in players)
+        {
+            t.allowMovement = false;
+        }
+    }*/
+}
