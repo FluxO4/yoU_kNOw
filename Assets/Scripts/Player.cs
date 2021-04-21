@@ -872,6 +872,17 @@ public class Player : NetworkBehaviour
         }
     }
 
+    public void sendPlayerScores(int turnid)
+    {
+        int tempscore = 0;
+        for(int i = 0; i < myCards.Count; i++)
+        {
+            tempscore += myCards[i].getScore;
+        }
+
+        Gameplay.current.CmdUpdatePlayerScores(turnid, tempscore);
+    }
+
     //UI actions
     [Command(requiresAuthority = false)]
     public void CmdAutoSetMyUIName()

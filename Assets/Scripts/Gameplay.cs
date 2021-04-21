@@ -46,7 +46,7 @@ public class Gameplay : NetworkBehaviour
     //Players
     public Player LocalPlayer;
     public List<Player> players;
-    public List<int> finishedPlayers;
+    public List<int> activePlayers;
 
     //Settings
     public List<bool> settings = new List<bool>();
@@ -354,6 +354,13 @@ public class Gameplay : NetworkBehaviour
 
         GameInProgress = true;
 
+        //finishedPlayers.Clear();
+        activePlayers.Clear();
+        for(int i = 0; i < players.Count; i++)
+        {
+            activePlayers.Add(i);
+        }
+
         RpcSetPlayerHands();
 
         SetCardFrequencies(randomCardFrequencies);
@@ -369,7 +376,7 @@ public class Gameplay : NetworkBehaviour
         RpcDropFirstCard(firstcard);
         RpcSetColourIndicator(Sceneobjects.current.CardColours[getCardColour(firstcard)], turnDirection);
 
-        turn = Random.Range(0, players.Count);
+        turn = Random.Range(0, activePlayers.Count);
         //turn = (turn + (1 + Random.Range(0, 10) * turnDirection));
 
        /* int n = players.Count;
@@ -400,9 +407,12 @@ public class Gameplay : NetworkBehaviour
             //Debug.Log("Autoaddcards settings is " + settings[0]);
         }
 
+         firstWinner = 0;
+         firstWinnerSet = false;
+
         for (int i = 0; i < players.Count; i++)
         {
-            if (i == turn)
+            if (i == activePlayers[turn])
             {
                 players[i].RpcTurnStart(true, 0, firstcard);
             }
@@ -589,7 +599,7 @@ public class Gameplay : NetworkBehaviour
 
         if (Iwin)
         {
-            RpcEndGame(prevturn);
+            RpcEndGame(activePlayers[prevturn]);
             //return;
         }
 
@@ -608,7 +618,8 @@ public class Gameplay : NetworkBehaviour
             }
         }*/
 
-        int n = players.Count;
+        int n = activePlayers.Count;
+
         if (turn < 0)
         {
             while(turn < 0)
@@ -624,11 +635,12 @@ public class Gameplay : NetworkBehaviour
                 turn -= n;
             }
         }
+        
 
         for(int i = 0; i < players.Count; i++)
         {
             //players[i].needToDrawBuffer = needToDraw;
-            if(i == turn)
+            if(i == activePlayers[turn])
             {
                 players[i].RpcTurnStart(true, drawCards, passCard);
             }
@@ -641,7 +653,7 @@ public class Gameplay : NetworkBehaviour
 
     }
 
-    [Command]
+    [Command(requiresAuthority = false)]
     public void CmdCheckTurn()
     {
         for(int i = 0; i < players.Count; i++)
@@ -657,30 +669,108 @@ public class Gameplay : NetworkBehaviour
         }
     }
 
+    int numScoreSent = 0;
+
+    [Command(requiresAuthority = false)]
+    public void CmdUpdatePlayerScores(int turnid, int myCards)
+    {
+        players[turnid].wins += myCards;
+        numScoreSent += 1;
+
+        if(numScoreSent == activePlayers.Count)
+        {
+            RpcSetPlayerScoresInCLients(turnid, players[turnid].wins);
+        }
+    }
+
+    [ClientRpc]
+    public void RpcSetPlayerScoresInCLients(int turnid, int score)
+    {
+        players[turnid].wins = score;
+
+        if (activePlayers.Count <= 1 || !settings[15])
+        {
+
+            GameInProgress = false;
+
+
+            int winningplayer = 0;
+            for(int i = 0; i < players.Count; i++)
+            {
+                if(players[i].wins > players[winningplayer].wins)
+                {
+                    winningplayer = i;
+                }
+            }
+
+
+            UIController.current.winText.text = players[winningplayer].playerName + " is leading!";
+
+            for (int i = 0; i < UIController.current.playerWinStatList.Count; i++)
+            {
+                if (i < players.Count)
+                {
+                    UIController.current.playerWinStatList[i].text = players[i].playerName + ": " + players[i].wins.ToString();
+                }
+                else
+                {
+
+                    UIController.current.playerWinStatList[i].text = "-";
+                }
+            }
+            UIController.current.WinScreen.SetActive(true);
+        }
+    }
+
+    int firstWinner = 0;
+    bool firstWinnerSet = false;
 
     [ClientRpc]
     public void RpcEndGame(int turnid)
     {
-        
-        
-        GameInProgress = false;
-
-
-        UIController.current.winText.text = players[turn].playerName + " is victorious!";
-        players[turn].wins += 1;
-        for(int i = 0; i < UIController.current.playerWinStatList.Count; i++)
+        activePlayers.Remove(turnid);
+        if (!firstWinnerSet)
         {
-            if (i < players.Count)
-            {
-                UIController.current.playerWinStatList[i].text = players[i].playerName + ": " + players[i].wins.ToString();
-            }
-            else
+            firstWinner = turnid;
+            firstWinnerSet = true;
+        }
+
+        int remaining = activePlayers.Count;
+
+        if (!settings[22])
+        {
+            players[turnid].wins += remaining;
+
+            if (remaining <= 1 || !settings[15])
             {
 
-                UIController.current.playerWinStatList[i].text = "-";
+                GameInProgress = false;
+
+
+                UIController.current.winText.text = players[firstWinner].playerName + " is victorious!";
+
+                for (int i = 0; i < UIController.current.playerWinStatList.Count; i++)
+                {
+                    if (i < players.Count)
+                    {
+                        UIController.current.playerWinStatList[i].text = players[i].playerName + ": " + players[i].wins.ToString();
+                    }
+                    else
+                    {
+
+                        UIController.current.playerWinStatList[i].text = "-";
+                    }
+                }
+                UIController.current.WinScreen.SetActive(true);
             }
         }
-        UIController.current.WinScreen.SetActive(true);
+        else
+        {
+            if(LocalPlayer.myID != turnid)
+            LocalPlayer.sendPlayerScores(turnid);
+        }
+
+
     }
 
     [ClientRpc]

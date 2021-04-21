@@ -81,6 +81,24 @@ public class Card : MonoBehaviour
         }
     }
 
+    public int getScore
+    {
+        get
+        {
+            if(cardNumber <= 9)
+            {
+                return cardNumber;
+            }else if(cardNumber <= 12)
+            {
+                return 20;
+            }
+            else
+            {
+                return 50;
+            }
+        }
+    }
+
     //public int rawValue = 0;
 
     Renderer myRenderer;
