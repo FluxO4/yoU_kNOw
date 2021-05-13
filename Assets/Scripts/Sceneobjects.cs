@@ -23,10 +23,11 @@ public class Sceneobjects : ControllerBase<Sceneobjects>
 
     public GameObject colorIndicator;
 
-
-    public List<Transform> Hands;
-    public List<Image> Names;
-    public List<Text> NameTexts;
+    //public List<Transform> Hands;
+    public List<Hand> Hands;
+    //public List<Image> Names;
+    //public List<Text> NameTexts;
+    //public List<GameObject> SwapButtons;
     /*public List<Transform> MyCards;
     public List<List<Transform>> opponentsCards;
     public List<Transform> CardsOnTable;*/

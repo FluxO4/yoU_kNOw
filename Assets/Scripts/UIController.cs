@@ -36,6 +36,7 @@ public class UIController : ControllerBase<UIController>
             
         }
         //settingsChangeEvent();
+        Gameplay.current.CmdSettingsChangeEvent();
     }
 
     public void setGameUI(bool ishost = false)
@@ -52,7 +53,7 @@ public class UIController : ControllerBase<UIController>
         for(int i = 0; i < 4; i++)
         {
             if (i < Gameplay.current.players.Count) {
-                playerList[i].text = "ID " + i.ToString() + " | " + Gameplay.current.players[i].playerName;
+                playerList[i].text = "ID " + Gameplay.current.players[i].myID.ToString() + " | " + Gameplay.current.players[i].playerName;
             }
             else
             {
@@ -78,6 +79,8 @@ public class UIController : ControllerBase<UIController>
 
     public GameObject SelectColourBox;
 
+    public GameObject SelectSwapBox;
+
     public GameObject WinScreen;
 
     public List<Text> playerWinStatList;
@@ -85,6 +88,8 @@ public class UIController : ControllerBase<UIController>
     public GameObject PlayAgainButton;
 
     public GameObject DisconnectedBox;
+
+    public GameObject HostLeftBox;
 
     public Text winText;
 
@@ -198,16 +203,25 @@ public class UIController : ControllerBase<UIController>
         }
         Gameplay.current.CmdSettingsChangeEvent();
 
-        //StartCoroutine(settingsChanger(settingchanged));
+        StartCoroutine(settingsChanger());
         
+    }
+
+    IEnumerator settingsChanger()
+    {
+        yield return new WaitForEndOfFrame();
+        Gameplay.current.CmdSettingsChangeEvent();
+
     }
 
     public void settingsChangeConsequence(List<bool> _settings, List<int> _cardProbabilities)
     {
-        if (settingsList[0].interactable)
+        if (iamHost || Gameplay.current.isServer)
         {
             return;
         }
+
+
         for (int i = 0; i < settingsList.Count; i++)
         {
             settingsList[i].isOn = _settings[i];
@@ -245,16 +259,46 @@ public class UIController : ControllerBase<UIController>
 
     public void LeaveGame()
     {
+        
+
         if (!Gameplay.current.isServer)
         {
+            Gameplay.current.LocalPlayer.CmdActivateIcon(3);
+            Gameplay.current.CmdCheckPlayersAfterDelay();
+            //StartCoroutine(checkPlayersAfterDelay());
             Sceneobjects.current.netManager.StopClient();
+            DisconnectedBox.SetActive(true);
         }
         else
         {
-            Sceneobjects.current.netManager.StopHost();
+            Debug.Log("Server attempting to disconnect ");
+            Gameplay.current.CmdDisconnectEverybody();
+            //Sceneobjects.current.netManager.StopHost();
         }
 
+        
+    }
+
+    public void ReloadScene()
+    {
         SceneManager.LoadScene("SampleScene");
+    }
+
+    public void SafeLeaveGame()
+    {
+        
+        if (!Gameplay.current.isServer)
+        {
+            Sceneobjects.current.netManager.StopClient();
+            HostLeftBox.SetActive(true);
+        }
+        else
+        { 
+            Sceneobjects.current.netManager.StopHost();
+            DisconnectedBox.SetActive(true);
+        }
+
+        //SceneManager.LoadScene("SampleScene");
     }
 
     public void CreateGame()
@@ -270,6 +314,7 @@ public class UIController : ControllerBase<UIController>
         PlayerPrefs.SetString("playerName", playerNameField.text);
         Sceneobjects.current.netManager.StartClient();
         ConnectingBox.SetActive(true);
+        
     }
 
     void SaveSavedValues()
@@ -354,6 +399,7 @@ public class UIController : ControllerBase<UIController>
         loadSavedValues();
     }
 
+    bool iamHost = false;
 
     // Update is called once per frame
     void Update()
@@ -364,7 +410,7 @@ public class UIController : ControllerBase<UIController>
             {
                 ConnectingBox.SetActive(false);
                 setStartUpUI(true);
-
+                iamHost = true;
             }
             // client-only
             else if (NetworkClient.isConnected)

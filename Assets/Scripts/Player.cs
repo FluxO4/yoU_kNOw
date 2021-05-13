@@ -14,7 +14,29 @@ public class Player : NetworkBehaviour
     public int numCards = 0;
     [SyncVar]
     public int wins = 0;
+    [SyncVar]
+    public bool cardShareUpdated = true;
+    [SyncVar]
+    public bool hasFinished = false;
 
+    public List<int> cardShare = new List<int>();
+
+
+    [Command]
+    public void CmdUpdateCardShare(List<int> TheCards)
+    {
+        cardShare = TheCards;
+        cardShareUpdated = true;
+    }
+
+    [ClientRpc]
+    public void RpcUpdateCardShare()
+    {
+        if (isLocalPlayer)
+        {
+            CmdUpdateCardShare(getCards());
+        }
+    }
 
 
     //Buffers
@@ -30,8 +52,8 @@ public class Player : NetworkBehaviour
     [SyncVar]
     public bool AnyOfJoinInMayMatch = false;*/
 
-    public Image myNameTag;
-    public Text myNameText;
+    /*public Image myNameTag;
+    public Text myNameText;*/
 
     [SyncVar]
     public string playerName;
@@ -55,9 +77,9 @@ public class Player : NetworkBehaviour
     //bool passAvailable = false;
 
     [SerializeField]
-    Transform _hand;
+    Hand _hand;
     Vector3 ogHandPosition;
-    public Transform hand
+    public Hand hand
     {
         get
         {
@@ -66,9 +88,15 @@ public class Player : NetworkBehaviour
         set
         {
             _hand = value;
+            _hand.swapButton.SetActive(true);
+            _hand.playerNameImage.gameObject.SetActive(true);
+            _hand.playerName.text = playerName;
+            _hand.myPlayer = this;
             ogHandPosition = _hand.position;
         }
     }
+
+    public GameObject swapButton;
 
     List<Card> myCards = new List<Card>();
     List<Card> launchList = new List<Card>();
@@ -100,6 +128,8 @@ public class Player : NetworkBehaviour
 
     bool handMoved = false;
     Vector3 ogogHandPosition;
+
+    public int swapTarget = -1;
 
     //Main functions
     void Update()
@@ -135,6 +165,24 @@ public class Player : NetworkBehaviour
         if (!selectionEnabled)
         {
             return;
+        }
+
+        if (hasFinished)
+        {
+            return;
+        }
+
+        /*if (!Gameplay.current.GameInProgress)
+        {
+            return;
+        }*/
+
+        if(Gameplay.current.settings[16] || Gameplay.current.settings[17])
+        {
+            if (Gameplay.current.waitingToSwapCards || Gameplay.current.waitingToSwapCardsAround)
+            {
+                return;
+            }
         }
 
         /*if (!Gameplay.current.GameInProgress)
@@ -271,10 +319,13 @@ public class Player : NetworkBehaviour
     [ClientRpc]
     public void RpcGameStartSetup()
     {
+        hasFinished = false;
+        cardShareUpdated = false;
         RemoveAllCards();
         myCards.Clear();
         skip = 0;
         reverse = 0;
+
         numCardDrawn = 0;
         numCardDrawnWithoutObligation = 0;
         if(handMoved)
@@ -303,10 +354,17 @@ public class Player : NetworkBehaviour
 
     //Hand actions
 
-    void AddCard(int cardValue)
+    void AddCard(int cardValue, int spawncode = -1)
     {
-        GameObject tcard = Instantiate(Sceneobjects.current.card, Sceneobjects.current.deck.transform.position, Quaternion.Euler(0, 0, -10));
-        tcard.transform.position = Sceneobjects.current.deck.transform.position;
+        Vector3 spawnPosition = Sceneobjects.current.deck.transform.position;
+
+        if(spawncode >= 0)
+        {
+            spawnPosition = Gameplay.current.players[spawncode].hand.position;
+        }
+        
+        GameObject tcard = Instantiate(Sceneobjects.current.card, spawnPosition, Quaternion.Euler(0, 0, -10));
+        tcard.transform.position = spawnPosition;
         tcard.transform.SetParent(hand);
         numCards = numCards + 1;
         Card tcardP = tcard.GetComponent<Card>();
@@ -315,6 +373,42 @@ public class Player : NetworkBehaviour
         //tcardP.resetCard();
         tcardP.Value = cardValue;
         tcard.name = tcardP.Value.ToString();
+
+        RefreshCardPositions();
+
+        //tcardP.offsetIfInHand = tcard.transform.localPosition.x;
+    }
+
+    void AddCards(List<int> cardValues, int spawncode = -1)
+    {
+        Vector3 spawnPosition = Sceneobjects.current.deck.transform.position;
+
+        if (spawncode >= 0)
+        {
+            //spawnPosition = Gameplay.current.players[spawncode].hand.position;
+            foreach(Player player in Gameplay.current.players)
+            {
+                if(spawncode == player.myID)
+                {
+                    spawnPosition = player.hand.position;
+                }
+            }
+        }
+
+        for (int i = 0; i < cardValues.Count; i++)
+        {
+            GameObject tcard = Instantiate(Sceneobjects.current.card, spawnPosition, Quaternion.Euler(0, 0, -10));
+            //tcard.transform.position = Sceneobjects.current.deck.transform.position;
+            tcard.transform.position = spawnPosition;
+            tcard.transform.SetParent(hand);
+            numCards = numCards + 1;
+            Card tcardP = tcard.GetComponent<Card>();
+            myCards.Add(tcardP);
+
+            //tcardP.resetCard();
+            tcardP.Value = cardValues[i];
+            tcard.name = tcardP.Value.ToString();
+        }
 
         RefreshCardPositions();
 
@@ -393,14 +487,21 @@ public class Player : NetworkBehaviour
         }
     }
 
-    void PlaceNCards(int number)
+    void PlaceNCards(int number, int spawncode = -1)
     {
         //RemoveAllCards();
         if (number > myCards.Count)
         {
+            Vector3 spawnPosition = Sceneobjects.current.deck.transform.position;
+
+            if (spawncode >= 0)
+            {
+                spawnPosition = Gameplay.current.players[spawncode].hand.position;
+            }
+
             for (int i = 0; i < number - myCards.Count; i++)
             {
-                GameObject tcard = Instantiate(Sceneobjects.current.card, Sceneobjects.current.deck.transform.position + Vector3.up, Quaternion.Euler(0, 0, -190));
+                GameObject tcard = Instantiate(Sceneobjects.current.card, spawnPosition + Vector3.up, Quaternion.Euler(0, 0, -190));
                 tcard.transform.SetParent(hand);
                 Card tcardP = tcard.GetComponent<Card>();
                 myCards.Add(tcardP);
@@ -421,13 +522,20 @@ public class Player : NetworkBehaviour
         RefreshCardPositions(0.4f);
     }
 
-    void PlaceNCardsS(int number)
+    void PlaceNCardsS(int number, int spawncode = -1)
     {
         RemoveAllCards();
 
+        Vector3 spawnPosition = Sceneobjects.current.deck.transform.position;
+
+        if (spawncode >= 0)
+        {
+            spawnPosition = Gameplay.current.players[spawncode].hand.position;
+        }
+
         for (int i = 0; i < number; i++)
         {
-            GameObject tcard = Instantiate(Sceneobjects.current.card, Sceneobjects.current.deck.transform.position + Vector3.up, Quaternion.Euler(0, 0, -190));
+            GameObject tcard = Instantiate(Sceneobjects.current.card, spawnPosition + Vector3.up, Quaternion.Euler(0, 0, -190));
             tcard.transform.SetParent(hand);
             Card tcardP = tcard.GetComponent<Card>();
             myCards.Add(tcardP);
@@ -546,10 +654,18 @@ public class Player : NetworkBehaviour
         colourSelected = true;
     }
 
+    public void selectSwap(int playerid)
+    {
+        swapTarget = playerid;
+        swapSelected = true;
+    }
+
     bool colourSelected = false;
+    bool swapSelected = true;
     IEnumerator LaunchCards()
     {
         selectionEnabled = false;
+        cardShareUpdated = false;
         int safetyCounter = 0;
         while (launchList.Count > 0 || safetyCounter > 20)
         {
@@ -560,22 +676,62 @@ public class Player : NetworkBehaviour
         }
         launchList.Clear();
         colourSelected = false;
+
+
         if (Gameplay.current.getCardNumber(passCard) >= 13)
         {
             UIController.current.SelectColourBox.SetActive(true);
             int counter = 0;
-            while(!colourSelected){
+            while (!colourSelected)
+            {
                 counter++;
                 yield return new WaitForSeconds(0.1f);
-                if(counter > 100)
+                if (counter > 100)
                 {
                     if (!colourSelected)
                     {
-                        Gameplay.current.selectWildColour(Random.Range(0,4));
+                        Gameplay.current.selectWildColour(Random.Range(0, 4));
                     }
                 }
             }
         }
+
+        if (myCards.Count > 0)
+        {
+            if (Gameplay.current.settings[16])
+            {
+                swapSelected = false;
+                if (Gameplay.current.getCardNumber(passCard) == 7)
+                {
+                    UIController.current.SelectSwapBox.SetActive(true);
+                    int counter = 0;
+                    while (!swapSelected)
+                    {
+                        counter++;
+                        yield return new WaitForSeconds(0.1f);
+                        if (counter > 100)
+                        {
+                            Gameplay.current.selectSwap(null);
+                            swapSelected = true;
+                        }
+                    }
+                }
+            }
+        }
+        else
+        {
+            if (!Gameplay.current.firstWinnerSetInClients)
+            {
+                CmdActivateIcon(1);
+                Gameplay.current.firstWinnerSetInClients = true;
+            }
+            else
+            {
+                CmdActivateIcon(2);
+            }
+        }
+
+
         //yield return new WaitForSeconds(1.0f);
         yield return new WaitForEndOfFrame();
 
@@ -584,11 +740,11 @@ public class Player : NetworkBehaviour
 
         if (myCards.Count <= 0)
         {
-            CmdPassTurnToNext(passDraw, skip, reverse, passCard, true);
+            CmdPassTurnToNext(passDraw, skip, reverse, passCard, swapTarget, true, false);
         }
         else
         {
-            CmdPassTurnToNext(passDraw, skip, reverse, passCard, false);
+            CmdPassTurnToNext(passDraw, skip, reverse, passCard, swapTarget, false, false);
         }
         colourSelected = false;
         //selectionEnabled = true;
@@ -639,6 +795,29 @@ public class Player : NetworkBehaviour
             return;
         }
         PlaceNCards(num);
+    }
+
+    [Command(requiresAuthority = false)]
+   public void CmdActivateIcon(int iconID)
+    {
+        //1 = first place
+        //2 = second place
+        RpcActivateIcon(iconID);
+    }
+
+    [ClientRpc]
+    void RpcActivateIcon(int iconID)
+    {
+        if(iconID == 1)
+        {
+            hand.firstPlaceIcon.SetActive(true);
+        }else if(iconID == 2)
+        {
+            hand.secondPlaceIcon.SetActive(true);
+        }else if(iconID == 3)
+        {
+            hand.disconnectedIcon.SetActive(true);
+        }
     }
 
 
@@ -721,9 +900,11 @@ public class Player : NetworkBehaviour
         int tcolour = (int)cardToCheck.colour;
         int tvalue = cardToCheck.cardNumber;
 
+
+
         if (passDraw > 0)
         {
-            if (Gameplay.current.settings[7])
+            if (!Gameplay.current.settings[7])
             {
                 return false;
             }
@@ -734,9 +915,34 @@ public class Player : NetworkBehaviour
                     return true;
                 }
             }
-        }else
+        }else 
         {
-            if(tvalue >= 13)
+            if (!Gameplay.current.settings[21])
+            {
+                if(tvalue == 13)
+                {
+                    return true;
+                }else
+                if (tvalue == lvalue)
+                {
+                    return true;
+                }
+                else
+                {
+                    
+                    for (int i = 0; i < myCards.Count; i++)
+                    {
+                        if (myCards[i].Value == 13)
+                        {
+                            return false;
+                        }
+                    }
+                }
+                
+            }
+
+
+            if (tvalue >= 13)
             {
                 return true;
             }
@@ -781,16 +987,17 @@ public class Player : NetworkBehaviour
 
         if (passDraw <= 0 && numCardDrawn >= 1)
         {
+            cardShareUpdated = false;
             CmdPlaceNCardsForAllNonLocals(myCards.Count);
-            CmdPassTurnToNext(passDraw, skip, reverse, passCard, false);
+            CmdPassTurnToNext(passDraw, skip, reverse, passCard, swapTarget, false, true);
             selectionEnabled = false;
         }
     }
 
     [Command]
-    public void CmdPassTurnToNext(int _passDraw, int _skip, int _reverse, int _passCard, bool Iwin)
+    public void CmdPassTurnToNext(int _passDraw, int _skip, int _reverse, int _passCard, int _swapTarget, bool Iwin, bool passed)
     {
-        Gameplay.current.PassTurnToNextPlayer(_passDraw, _skip, _reverse, _passCard, Iwin);
+        Gameplay.current.PassTurnToNextPlayer(_passDraw, _skip, _reverse, _passCard, _swapTarget, Iwin, passed);
     }
 
 
@@ -858,30 +1065,51 @@ public class Player : NetworkBehaviour
         Gameplay.current.CmdUpdatePlayerNames();
     }
 
-    [ClientRpc]
-    public void RpcSetMyTurn(bool isitmyturn)
-    {
-        if (isitmyturn)
-        {
-            myturn = true;
-            selectionEnabled = true;
-        }
-        else
-        {
-            myturn = false;
-        }
-    }
 
-    public void sendPlayerScores(int turnid)
+
+    //Function to return cards
+    public List<int> getCards()
     {
-        int tempscore = 0;
+        List<int> temp = new List<int>();
         for(int i = 0; i < myCards.Count; i++)
         {
-            tempscore += myCards[i].getScore;
+            temp.Add(myCards[i].Value);
         }
 
-        Gameplay.current.CmdUpdatePlayerScores(turnid, tempscore);
+        return temp;
     }
+
+    [ClientRpc]
+    public void RpcSetCards(List<int> theCards, int spawncode)
+    {
+        if (!isLocalPlayer)
+        {
+            PlaceNCardsS(theCards.Count, spawncode);
+            return;
+        }
+        RemoveAllCards();
+
+        AddCards(theCards, spawncode);
+
+        CmdPlaceNCardsForAllNonLocals(theCards.Count);
+
+        cardShareUpdated = false;
+    }
+
+    /*
+    [TargetRpc]
+    public void TargetSendCardsToServer() {
+        CmdSendMyCardsToServer(getCards());
+    }
+
+    /*
+    [Command]
+    public void CmdSendMyCardsToServer(List<int> thecards)
+    {
+        Gameplay.current.playerCards[myID] = thecards;
+        Gameplay.current.playerCardsUpdated[myID] = true;
+    }
+    */
 
     //UI actions
     [Command(requiresAuthority = false)]
@@ -902,20 +1130,20 @@ public class Player : NetworkBehaviour
         {
             if (needToDraw > 0)
             {
-                myNameText.text = playerName + " (+" + (needToDraw).ToString() + ")";
+                hand.playerName.text = playerName + " (+" + (needToDraw).ToString() + ")";
 
             }
             else
             {
-                myNameText.text = playerName;
+                hand.playerName.text = playerName;
 
             }
-            myNameTag.color = Sceneobjects.current.selectedNameColour;
+            hand.playerNameImage.color = Sceneobjects.current.selectedNameColour;
         }
         else
         {
-            myNameText.text = playerName;
-            myNameTag.color = Sceneobjects.current.unselectedNameColour;
+            hand.playerName.text = playerName;
+            hand.playerNameImage.color = Sceneobjects.current.unselectedNameColour;
         }
     }
 }
