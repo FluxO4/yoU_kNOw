@@ -806,6 +806,16 @@ public class Player : NetworkBehaviour
     }
 
     [ClientRpc]
+    public void RpcDisconnect()
+    {
+        if (!isLocalPlayer)
+        {
+            return;
+        }
+        UIController.current.LeaveGame();
+    }
+
+    [ClientRpc]
     void RpcActivateIcon(int iconID)
     {
         if(iconID == 1)

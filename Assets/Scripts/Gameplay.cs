@@ -508,6 +508,13 @@ public class Gameplay : NetworkBehaviour
         UIController.current.SafeLeaveGame();
     }
 
+    [Command(requiresAuthority = false)]
+    public void CmdDisconnectPlayer(Player playerToDisconnect)
+    {
+        playerToDisconnect.RpcDisconnect();
+
+    }
+
 
     //Game start methods
 
@@ -548,6 +555,7 @@ public class Gameplay : NetworkBehaviour
         }*/
         RpcSetGameUI();
 
+        turnTimeOutCounter = 0;
 
         playerScores.Clear();
         playerScores.Add(0);
@@ -583,25 +591,7 @@ public class Gameplay : NetworkBehaviour
         RpcSetColourIndicator(Sceneobjects.current.CardColours[getCardColour(firstcard)], turnDirection);
 
         turn = Random.Range(0, activePlayers.Count);
-        //turn = (turn + (1 + Random.Range(0, 10) * turnDirection));
 
-        /* int n = players.Count;
-         if (turn < 0)
-         {
-             while (turn < 0)
-             {
-                 turn += n;
-             }
-         }
-
-         if (turn >= n)
-         {
-             while (turn >= n)
-             {
-                 turn -= n;
-             }
-         }*/
-        //Debug.Log("TURN IS " + turn);
 
         foreach (Player t in players)
         {
@@ -822,11 +812,14 @@ public class Gameplay : NetworkBehaviour
             }
         }
         int prevturn = turn;
+        int prevTurnIndex = activePlayers[turn];
 
-        
+        turn = (turn + (1 + skip) * turnDirection);
 
         if (Iwin)
         {
+            //Player turnPlayer = players[activePlayers[turn]];
+
             int winner = activePlayers[prevturn];
             activePlayers.Remove(winner);
             int remaining = activePlayers.Count;
@@ -860,7 +853,7 @@ public class Gameplay : NetworkBehaviour
                 StartCoroutine(setPlayerScores(winner, remaining));
             }
 
-            
+            //turn = activePlayers.IndexOf(turnPlayer.myID);
         }
 
         if (!GameInProgress)
@@ -868,8 +861,23 @@ public class Gameplay : NetworkBehaviour
             return;
         }
 
+        int n = activePlayers.Count;
+        if (turn < 0)
+        {
+            while (turn < 0)
+            {
+                turn += n;
+            }
+        }
 
-        IncrementTurn(skip);
+        if (turn >= n)
+        {
+            while (turn >= n)
+            {
+                turn -= n;
+            }
+        }
+
 
         //Player playerWithTurn = players[activePlayers[turn]];
 
@@ -882,7 +890,7 @@ public class Gameplay : NetworkBehaviour
             }
             StartCoroutine(swapCardsAround());
         }
-        else if (settings[16] && getCardNumber(passCard) == 7)
+        else if (settings[16] && getCardNumber(passCard) == 7 && activePlayers.Count > 1 && !passed)
         {
             if(swapTarget == -1)
             {
@@ -894,12 +902,21 @@ public class Gameplay : NetworkBehaviour
             {
                 players[activePlayers[i]].RpcUpdateCardShare();
             }
-            StartCoroutine(swapCards(activePlayers[prevturn], swapTarget));
+            StartCoroutine(swapCards(prevTurnIndex, swapTarget));
         }
         else
         {
             nextTurn();
         }
+    }
+
+    int turnTimeOutCounter = 0;
+    IEnumerator turnTimeOut()
+    {
+        int temp = turnTimeOutCounter;
+        yield return new WaitForSeconds(100);
+        if(temp == turnTimeOutCounter)
+        players[activePlayers[turn]].RpcDisconnect();
     }
 
     void IncrementTurn(int skip = 0)
@@ -938,6 +955,10 @@ public class Gameplay : NetworkBehaviour
                 players[i].RpcTurnStart(false, server_drawCards, server_passCard);
             }
         }
+
+        StopCoroutine(turnTimeOut());
+        turnTimeOutCounter++;
+        StartCoroutine(turnTimeOut());
     }
 
     public void selectSwap(Hand playerHand)
@@ -1040,9 +1061,9 @@ public class Gameplay : NetworkBehaviour
         {
             bool waitingForPlayerCards = false;
 
-            for (int i = 0; i < players.Count; i++)
+            for (int i = 0; i < activePlayers.Count; i++)
             {
-                if (players[i].cardShareUpdated == false)
+                if (players[activePlayers[i]].cardShareUpdated == false)
                 {
                     waitingForPlayerCards = true;
                     break;
@@ -1077,9 +1098,9 @@ public class Gameplay : NetworkBehaviour
                 bool waitingForPlayerCards = false;
 
 
-                for (int i = 0; i < players.Count; i++)
+                for (int i = 0; i < activePlayers.Count; i++)
                 {
-                    if (players[i].cardShareUpdated == false)
+                    if (players[activePlayers[i]].cardShareUpdated == false)
                     {
                         waitingForPlayerCards = true;
                         break;
@@ -1088,12 +1109,13 @@ public class Gameplay : NetworkBehaviour
 
 
 
-            if (!waitingForPlayerCards || safetycounter >= 29)
+                if (!waitingForPlayerCards || safetycounter >= 29)
                 {
                     players[ss].RpcSetCards(players[dd].cardShare, dd);
                     players[dd].RpcSetCards(players[ss].cardShare, ss);
 
                     waitingToSwapCards = false;
+                    break;
                 }
             }
 

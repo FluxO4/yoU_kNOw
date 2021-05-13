@@ -7,10 +7,10 @@ using UnityEngine.SceneManagement;
 
 public class UIController : ControllerBase<UIController>
 {
-    bool started = false;
+    //bool started = false;
     public void setStartUpUI(bool iamhost = false)
     {
-        started = true;
+        //started = true;
         titleScreen.SetActive(false);
         playerListObject.SetActive(true);
         StartGameButton.SetActive(false);
@@ -106,6 +106,7 @@ public class UIController : ControllerBase<UIController>
     public void StartGame()
     {
         SaveSettings();
+        Gameplay.current.CmdSettingsChangeEvent();
         Debug.Log("Reached UI StartGame");
         Gameplay.current.StartGame();
         setGameUI(true);
@@ -113,7 +114,7 @@ public class UIController : ControllerBase<UIController>
 
     public void settingsChangeEvent(int settingchanged)
     {
-        if (settingchanged != -1 && !started)
+        if (Gameplay.current.GameInProgress)
         {
             return;
         }
@@ -128,7 +129,12 @@ public class UIController : ControllerBase<UIController>
                 settingsList[i].isOn = false;
             }
         }*/
-        
+        if(settingchanged == -1)
+        {
+            goto here;
+        }
+
+
         if (settingchanged == 0)
         {
             for (int i = 0; i < settingsList.Count; i++)
@@ -201,8 +207,8 @@ public class UIController : ControllerBase<UIController>
                 
             }
         }
-        Gameplay.current.CmdSettingsChangeEvent();
-
+    //Gameplay.current.CmdSettingsChangeEvent();
+    here:;
         StartCoroutine(settingsChanger());
         
     }
@@ -259,12 +265,14 @@ public class UIController : ControllerBase<UIController>
 
     public void LeaveGame()
     {
-        
+
 
         if (!Gameplay.current.isServer)
         {
-            Gameplay.current.LocalPlayer.CmdActivateIcon(3);
-            Gameplay.current.CmdCheckPlayersAfterDelay();
+            if (!Gameplay.current.GameInProgress && Gameplay.current.LocalPlayer.hand) { 
+                Gameplay.current.LocalPlayer.CmdActivateIcon(3);
+                Gameplay.current.CmdCheckPlayersAfterDelay();
+            }
             //StartCoroutine(checkPlayersAfterDelay());
             Sceneobjects.current.netManager.StopClient();
             DisconnectedBox.SetActive(true);
