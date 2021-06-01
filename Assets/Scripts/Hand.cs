@@ -9,6 +9,7 @@ public class Hand : MonoBehaviour
     public GameObject firstPlaceIcon;
     public GameObject secondPlaceIcon;
     public GameObject disconnectedIcon;
+    public Text winText;
     public Text playerName;
     public Image playerNameImage;
 
@@ -55,6 +56,7 @@ public class Hand : MonoBehaviour
         firstPlaceIcon.SetActive(false);
         secondPlaceIcon.SetActive(false);
         disconnectedIcon.SetActive(false);
+        //winText.gameObject.SetActive(false);
     }
 
     static public implicit operator Transform(Hand hand)

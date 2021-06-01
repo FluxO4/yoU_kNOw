@@ -36,7 +36,7 @@ public class UIController : ControllerBase<UIController>
             
         }
         //settingsChangeEvent();
-        Gameplay.current.CmdSettingsChangeEvent();
+        //Gameplay.current.CmdSettingsChangeEvent();
     }
 
     public void setGameUI(bool ishost = false)
@@ -105,8 +105,13 @@ public class UIController : ControllerBase<UIController>
 
     public void StartGame()
     {
+        if (Gameplay.current.players.Count <= 0)
+        {
+            return;
+        }
+
         SaveSettings();
-        Gameplay.current.CmdSettingsChangeEvent();
+        //Gameplay.current.CmdSettingsChangeEvent();
         Debug.Log("Reached UI StartGame");
         Gameplay.current.StartGame();
         setGameUI(true);
@@ -114,10 +119,7 @@ public class UIController : ControllerBase<UIController>
 
     public void settingsChangeEvent(int settingchanged)
     {
-        if (Gameplay.current.GameInProgress)
-        {
-            return;
-        }
+
         /*for (int i = 0; i < 4; i++)
         {
             if (i == settingchanged)
@@ -209,6 +211,12 @@ public class UIController : ControllerBase<UIController>
         }
     //Gameplay.current.CmdSettingsChangeEvent();
     here:;
+
+        /*if (Gameplay.current.GameInProgress)
+        {
+            return;
+        }*/
+
         StartCoroutine(settingsChanger());
         
     }
@@ -222,21 +230,34 @@ public class UIController : ControllerBase<UIController>
 
     public void settingsChangeConsequence(List<bool> _settings, List<int> _cardProbabilities)
     {
+        StartCoroutine(settingsChangeConequences(_settings, _cardProbabilities));
+    }
+
+    IEnumerator settingsChangeConequences(List<bool> _settings, List<int> _cardProbabilities)
+    {
+        Debug.Log(" Settings Change Consequences called");
+
+
+        yield return new WaitForEndOfFrame();
         if (iamHost || Gameplay.current.isServer)
         {
-            return;
+
         }
+        else
+        {
 
 
-        for (int i = 0; i < settingsList.Count; i++)
-        {
-            settingsList[i].isOn = _settings[i];
-        }
-        for (int i = 0; i < numberFrequencies.Count; i++)
-        {
-            numberFrequencies[i].value = _cardProbabilities[i];
+            for (int i = 0; i < settingsList.Count; i++)
+            {
+                settingsList[i].isOn = _settings[i];
+            }
+            for (int i = 0; i < numberFrequencies.Count; i++)
+            {
+                numberFrequencies[i].value = _cardProbabilities[i];
+            }
         }
     }
+
 
     public void ResetSettingsToDefault()
     {
@@ -311,18 +332,31 @@ public class UIController : ControllerBase<UIController>
 
     public void CreateGame()
     {
-        SaveSavedValues();
-        Sceneobjects.current.netManager.StartHost();
-        ConnectingBox.SetActive(true);
+        if (Sceneobjects.current.netManager != null)
+        {
+            SaveSavedValues();
+
+            Sceneobjects.current.netManager.StartHost();
+            ConnectingBox.SetActive(true);
+        }
     }
 
     public void JoinGame()
     {
-        SaveSavedValues();
-        PlayerPrefs.SetString("playerName", playerNameField.text);
-        Sceneobjects.current.netManager.StartClient();
-        ConnectingBox.SetActive(true);
-        
+        if (Sceneobjects.current.netManager != null)
+        {
+            SaveSavedValues();
+            PlayerPrefs.SetString("playerName", playerNameField.text);
+            Sceneobjects.current.netManager.StartClient();
+            ConnectingBox.SetActive(true);
+            StartCoroutine(settingsSetter());
+        }
+    }
+
+    IEnumerator settingsSetter()
+    {
+        yield return new WaitForSeconds(0.5f);
+        Gameplay.current.CmdSettingsChangeEvent();
     }
 
     void SaveSavedValues()

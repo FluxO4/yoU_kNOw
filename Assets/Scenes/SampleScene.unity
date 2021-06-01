@@ -2166,7 +2166,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &170625930
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2194,13 +2194,13 @@ MonoBehaviour:
     m_BestFit: 1
     m_MinSize: 2
     m_MaxSize: 28
-    m_Alignment: 0
+    m_Alignment: 1
     m_AlignByGeometry: 0
     m_RichText: 1
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: 'Donkey pizza ostronutty: 1'
+  m_Text: '[Empty]'
 --- !u!222 &170625931
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -2225,7 +2225,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: -35.999996}
+  m_AnchoredPosition: {x: -2, y: 36}
   m_SizeDelta: {x: 300, y: 30}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &175483014
@@ -2735,6 +2735,7 @@ MonoBehaviour:
   firstPlaceIcon: {fileID: 567026841}
   secondPlaceIcon: {fileID: 1373072731}
   disconnectedIcon: {fileID: 1507629414}
+  winText: {fileID: 1283753247}
   playerName: {fileID: 680812513}
   playerNameImage: {fileID: 275350176}
   myPlayer: {fileID: 0}
@@ -3718,7 +3719,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &275350175
 RectTransform:
   m_ObjectHideFlags: 0
@@ -8355,7 +8356,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 400, y: 400}
+  m_SizeDelta: {x: 600, y: 400}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &567855298
 MonoBehaviour:
@@ -9670,7 +9671,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &640094051
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9704,7 +9705,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: 'Donkey pizza ostronutty: 1'
+  m_Text: '[Empty]'
 --- !u!222 &640094052
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -9729,7 +9730,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: -5.999996}
+  m_AnchoredPosition: {x: -141, y: -28}
   m_SizeDelta: {x: 300, y: 30}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &642677109
@@ -10843,16 +10844,11 @@ MonoBehaviour:
   GameInProgress: 0
   IsGameOver: 0
   LocalPlayer: {fileID: 0}
-  players: []
-  activePlayers: 
+  turnPlayer: {fileID: 0}
   settings: 
   cardFrequencies: 010000000200000002000000020000000200000002000000020000000200000002000000020000000200000002000000020000000100000001000000
-  turn: 0
-  turnDirection: 1
-  waitingToSwapCardsAround: 0
-  waitingToSwapCards: 0
   settingsUpdated: 0
-  firstWinnerSetInClients: 0
+  turnDirection: 1
 --- !u!114 &748575426
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -12431,7 +12427,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &912537351
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -12459,13 +12455,13 @@ MonoBehaviour:
     m_BestFit: 1
     m_MinSize: 2
     m_MaxSize: 28
-    m_Alignment: 0
+    m_Alignment: 1
     m_AlignByGeometry: 0
     m_RichText: 1
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: 'Donkey pizza ostronutty: 1'
+  m_Text: '[Empty]'
 --- !u!222 &912537352
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -12490,7 +12486,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 22.000004}
+  m_AnchoredPosition: {x: 0, y: -97}
   m_SizeDelta: {x: 300, y: 30}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &913923843
@@ -13993,7 +13989,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1026262117
 RectTransform:
   m_ObjectHideFlags: 0
@@ -16498,6 +16494,7 @@ MonoBehaviour:
   firstPlaceIcon: {fileID: 1219726721}
   secondPlaceIcon: {fileID: 1673949397}
   disconnectedIcon: {fileID: 1624921666}
+  winText: {fileID: 170625930}
   playerName: {fileID: 1473480946}
   playerNameImage: {fileID: 1698830213}
   myPlayer: {fileID: 0}
@@ -18096,7 +18093,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1283753247
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -18124,13 +18121,13 @@ MonoBehaviour:
     m_BestFit: 1
     m_MinSize: 2
     m_MaxSize: 28
-    m_Alignment: 0
+    m_Alignment: 2
     m_AlignByGeometry: 0
     m_RichText: 1
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: 'Donkey pizza ostronutty: 1'
+  m_Text: '[Empty]'
 --- !u!222 &1283753248
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -18155,7 +18152,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: -65}
+  m_AnchoredPosition: {x: 143, y: -28}
   m_SizeDelta: {x: 300, y: 30}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &1302454893
@@ -22137,6 +22134,7 @@ MonoBehaviour:
   firstPlaceIcon: {fileID: 452706733}
   secondPlaceIcon: {fileID: 452488559}
   disconnectedIcon: {fileID: 1696401267}
+  winText: {fileID: 640094051}
   playerName: {fileID: 1763241757}
   playerNameImage: {fileID: 1026262118}
   myPlayer: {fileID: 0}
@@ -24754,7 +24752,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1698830212
 RectTransform:
   m_ObjectHideFlags: 0
@@ -28838,7 +28836,7 @@ MonoBehaviour:
   m_ScaleFactor: 1
   m_ReferenceResolution: {x: 1280, y: 720}
   m_ScreenMatchMode: 0
-  m_MatchWidthOrHeight: 0
+  m_MatchWidthOrHeight: 1
   m_PhysicalUnit: 3
   m_FallbackScreenDPI: 96
   m_DefaultSpriteDPI: 96
@@ -30039,6 +30037,7 @@ MonoBehaviour:
   firstPlaceIcon: {fileID: 1085162560}
   secondPlaceIcon: {fileID: 1312148316}
   disconnectedIcon: {fileID: 631921268}
+  winText: {fileID: 912537351}
   playerName: {fileID: 176555506}
   playerNameImage: {fileID: 543423395}
   myPlayer: {fileID: 0}

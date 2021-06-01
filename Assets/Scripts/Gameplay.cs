@@ -45,26 +45,311 @@ public class Gameplay : NetworkBehaviour
 
     //Players
     public Player LocalPlayer;
-    public List<Player> players;
-    public List<int> activePlayers;
+    //public List<Player> players;
+    public PlayerList players = new PlayerList();
+    /*List<int> activePlayers;
+    int[] playerScores = new int[4];*/
+    public Player turnPlayer;
 
+    public class PlayerList
+    {
+        public List<Player> theList = new List<Player>();
+
+        public int Count
+        {
+            get
+            {
+                return theList.Count;
+            }
+        }
+
+        public void Add(Player toAdd)
+        {
+            theList.Add(toAdd);
+        }
+
+        public void Clear()
+        {
+            theList.Clear();
+        }
+
+        public bool Contains(Player toContain)
+        {
+            return theList.Contains(toContain);
+        }
+
+        public int IndexOf(Player toIndex)
+        {
+            return theList.IndexOf(toIndex);
+        }
+
+        int _turn = 0;
+        int turn
+        {
+            get
+            {
+                return _turn;
+            }
+            set
+            {
+                int t = value;
+                while (t >= Count)
+                {
+                    t = t - Count;
+                }
+                while (t < 0)
+                {
+                    t = t + Count;
+                }
+                _turn = t;
+            }
+        }
+
+        int numInactivePlayers = 0;
+        public int numActivePlayers
+        {
+            get
+            {
+                return Count - numInactivePlayers;
+            }
+            set
+            {
+                numInactivePlayers = Count - value;
+            }
+        }
+
+        public Player randomTurnPlayer()
+        {
+            if (Count <= 0)
+            {
+                return null;
+            }
+            turn = Random.Range(0, this.Count - 1);
+            return this[turn];
+        }
+
+        public Player nextTurnPlayer(int _skip, int _turnDirection)
+        {
+            if (this.Count <= 0)
+            {
+                return null;
+            }
+            //turn = (turn + (1 + _skip) * _turnDirection);
+            for (int i = 0; i <= _skip; i++)
+            {
+                turn = turn + _turnDirection;
+                int safetyCounter = 0;
+                while (!this[turn].active && safetyCounter < 50)
+                {
+                    safetyCounter++;
+                    turn = turn + _turnDirection;
+                }
+            }
+
+            return this[turn];
+        }
+
+        public void deactivatePlayer(Player thePlayer)
+        {
+            if (this.Count <= 0)
+            {
+                return;
+            }
+            for (int i = 0; i < this.Count; i++)
+            {
+                if (this[i] == thePlayer)
+                {
+                    this[i].active = false;
+                    if (numActivePlayers >= 0)
+                    {
+                        numActivePlayers--;
+                    }
+                }
+            }
+        }
+
+        public void RemovePlayer(Player playerToRemove)
+        {
+            if (playerToRemove.active)
+            {
+                if (numActivePlayers >= 0)
+                {
+                    numActivePlayers--;
+                }
+            }
+            playerToRemove.active = false;
+            theList.Remove(playerToRemove);
+        }
+
+        public void RemovePlayer(int playerToRemove)
+        {
+            if (this[playerToRemove].active)
+            {
+                if (numActivePlayers >= 0)
+                {
+                    numActivePlayers--;
+                }
+            }
+            theList.RemoveAt(playerToRemove);
+        }
+
+        public Player randomActivePlayer()
+        {
+            List<Player> temp = new List<Player>();
+            for (int i = 0; i < Count; i++)
+            {
+                if (this[i].active)
+                {
+                    temp.Add(this[i]);
+                }
+            }
+
+            return temp[Random.Range(0, temp.Count)];
+
+        }
+
+        public List<int> playerScores()
+        {
+            List<int> temp = new List<int>();
+            for (int i = 0; i < Count; i++)
+            {
+                temp.Add(this[i].score);
+            }
+            return temp;
+        }
+
+        public List<Player> activePlayers()
+        {
+            
+            {
+                List<Player> temp = new List<Player>();
+                for (int i = 0; i < Count; i++)
+                {
+                    if (this[i].active)
+                    {
+                        temp.Add(this[i]);
+                    }
+                }
+                return temp;
+            }
+        }
+
+        public Player this[int key]
+        {
+            get => theList[key];
+            set => theList[key] = value;
+        }
+
+        public PlayerList()
+        {
+        }
+    }
+
+
+    //public Player 
+
+    void CheckPlayers()
+    {
+        List<Player> tempPlayers = new List<Player>();
+
+        foreach (KeyValuePair<uint, NetworkIdentity> kvp in NetworkIdentity.spawned)
+        {
+            Player comp = kvp.Value.GetComponent<Player>();
+
+            //Add if new
+            if (comp != null)
+            {
+                tempPlayers.Add(comp);
+            }
+        }
+
+        for (int i = 0; i < players.Count; i++)
+        {
+            if (!tempPlayers.Contains(players[i]))
+            {
+                players.RemovePlayer(i);
+            }
+        }
+
+
+        for (int i = 0; i < tempPlayers.Count; i++)
+        {
+            if (!players.Contains(tempPlayers[i]))
+            {
+                players.Add(tempPlayers[i]);
+            }
+        }
+
+        if (isServer) for (int i = 0; i < players.Count; i++)
+            {
+                players[i].myID = i;
+            }
+
+        UIController.current.updatePlayerList();
+
+
+    }
+
+
+    [Command(requiresAuthority = false)]
+    public void CmdCheckPlayers()
+    {
+        CheckPlayers();
+    }
+
+    [Command(requiresAuthority = false)]
+    public void CmdCheckPlayersAfterDelay()
+    {
+        StartCoroutine(checkPlayersAfterDelay());
+    }
+
+
+    IEnumerator checkPlayersAfterDelay()
+    {
+
+        yield return new WaitForSeconds(0.5f);
+
+        CheckPlayers();
+    }
+
+
+    void FindLocalPlayer()
+    {
+        //Check to see if the player is loaded in yet
+        if (NetworkClient.localPlayer == null)
+            return;
+
+        LocalPlayer = NetworkClient.localPlayer.GetComponent<Player>();
+        //ReadyButtonHandler();
+    }
+
+    [Command(requiresAuthority = false)]
+    public void CmdDisconnectEverybody()
+    {
+        RpcDisconnectEverybody();
+    }
+
+    [ClientRpc]
+    public void RpcDisconnectEverybody()
+    {
+        //UIController.current.HostLeftBox.SetActive(true);
+        UIController.current.SafeLeaveGame();
+    }
+
+    [Command(requiresAuthority = false)]
+    public void CmdDisconnectPlayer(Player playerToDisconnect)
+    {
+        playerToDisconnect.RpcDisconnect();
+
+    }
+
+
+    #region Settings Variables and Methods
 
     //Settings
     public List<bool> settings = new List<bool>();
-    // ------ OLD SETTINGS SET ------
-    //0 = Auto add cards if no comeback
-    //1 = Turn skips after draw 2 or draw 4
-    //2 = Allow stacking same-numbered cards
-    //3 = Allow stacking wild cards
-    //4 = Any card in stack may match
-    //5 = Allow pass button after one card drawn
-    //6 = Allow multiple cards to be drawn in a turn
-    //7 = Allow drawing card if legal card exists
-    //8 = Fix multi-skip in 2 player game
-    //9 = Reverse skips in 2 player game
-    //10 = Allow draw 2 and draw 4 comebacks
 
-    // ------ NEW SETTINGS SET ------
+    // ------ SETTINGS SET ------
     //0 = Recommended Special *CHEF'S KISS* rules
     //1 = UNO(TM) common unofficial rules
 
@@ -94,9 +379,8 @@ public class Gameplay : NetworkBehaviour
 
 
     //Random card frequencies
+
     public int[] cardFrequencies = { 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1 };
-
-
     int cardFrequenciesSum = 27;
 
     [ClientRpc]
@@ -129,6 +413,42 @@ public class Gameplay : NetworkBehaviour
         }
     }
 
+    [Command(requiresAuthority = false)]
+    public void CmdSettingsChangeEvent()
+    {
+        Debug.Log("Cmd Settings Change Event called");
+        List<bool> tempSettings = new List<bool>();
+        List<int> tempFrequencies = new List<int>();
+        for (int i = 0; i < UIController.current.settingsList.Count; i++)
+        {
+            tempSettings.Add(UIController.current.settingsList[i].isOn);
+        }
+        for (int i = 0; i < UIController.current.numberFrequencies.Count; i++)
+        {
+            tempFrequencies.Add((int)UIController.current.numberFrequencies[i].value);
+        }
+
+        RpcSettingsChangeEvent(tempSettings, tempFrequencies);
+    }
+
+    [ClientRpc]
+    public void RpcSettingsChangeEvent(List<bool> tempSettings, List<int> tempProbabilities)
+    {
+        Debug.Log("RPC Settings Change Event called");
+
+        UIController.current.settingsChangeConsequence(tempSettings, tempProbabilities);
+    }
+
+
+    public bool settingsUpdated = false;
+
+    //------------End of settings
+    #endregion
+
+
+
+
+
     //Random card generator
     public int getRandomCard
     {
@@ -152,61 +472,29 @@ public class Gameplay : NetworkBehaviour
     }
 
 
-    //Syncvars
-    /* [SyncVar]
-     public int cardOnTable = -1;
-     public int cardOnTableBuffer = -1;
-     [ClientRpc]
-     public void RpcSetCardOnTableBuffer(int val)
-     {
-         cardOnTableBuffer = val;
-     }*/
 
-    [SyncVar]
-    public int turn = 0;
+
+
+
+    /*[SyncVar]
+    public int turn = 0;*/
 
 
     //turn
     int server_drawCards = 0;
     int server_passCard = 0;
 
-    /* [SyncVar]
-     public int needToDraw = 0; //Whoever's turn is next needs to draw this many cards in order to pass the turn
-     public int needToDrawBuffer = 0;
-     [ClientRpc]
-     public void RpcSetNeedToDrawBuffer(int val)
-     {
-         needToDrawBuffer = val;
-     }*/
+    int winOrderCounter = 0;
 
     [SyncVar]
     public int turnDirection = 1; //1 is clockwise
 
 
-    [SyncVar]
-    public bool waitingToSwapCardsAround = false;
 
-    [SyncVar]
-    public bool waitingToSwapCards = false;
-    
-    /*int sourcePlayer = -1;
-    int destinationPlayer = -1;*/
-
-    public bool settingsUpdated = false;
-
-    //Game options
-
-
-
-
-    //Main methods
     private void Update()
     {
         if (NetworkManager.singleton.isNetworkActive)
         {
-            if (!GameInProgress)
-                CheckPlayers();
-
             if (!isServer)
             {
                 if (!settingsUpdated)
@@ -216,74 +504,6 @@ public class Gameplay : NetworkBehaviour
                 }
             }
 
-            if (isServer && GameInProgress)
-            {
-                /*
-                if (settings[17])
-                {
-                    if (waitingToSwapCardsAround)
-                    {
-                        bool waitingForPlayerCards = false;
-
-                        for (int i = 0; i < players.Count; i++)
-                        {
-                            if (players[i].cardShareUpdated == false)
-                            {
-                                waitingForPlayerCards = true;
-                                break;
-                            }
-                        }
-
-
-                        if (!waitingForPlayerCards) {
-                            for (int i = 0; i < activePlayers.Count; i++)
-                            {
-                                int ti = normaliseForIndex(i + turnDirection, activePlayers.Count);
-                                //TargetSetCards(players[activePlayers[i]].netIdentity.connectionToClient, playerCards[activePlayers[ti]], activePlayers[ti]);
-                                players[activePlayers[i]].RpcSetCards(players[activePlayers[ti]].cardShare, activePlayers[ti]);
-                            }
-                            waitingToSwapCardsAround = false;
-                        }
-                    }
-                }
-                if (settings[17])
-                {
-                    if (waitingToSwapCards)
-                    {
-                        bool waitingForPlayerCards = false;
-
-
-                        for (int i = 0; i < players.Count; i++)
-                        {
-                            if (players[i].cardShareUpdated == false)
-                            {
-                                waitingForPlayerCards = true;
-                                break;
-                            }
-                        }
-
-
-
-                        if (!waitingForPlayerCards)
-                        {
-                            //TargetSetCards(players[sourcePlayer].netIdentity.connectionToClient, playerCards[destinationPlayer], destinationPlayer);
-                            //TargetSetCards(players[destinationPlayer].netIdentity.connectionToClient, playerCards[sourcePlayer], sourcePlayer);
-
-                            players[sourcePlayer].RpcSetCards(players[destinationPlayer].cardShare, destinationPlayer);
-                            players[destinationPlayer].RpcSetCards(players[sourcePlayer].cardShare, sourcePlayer);
-
-                            waitingToSwapCards = false;
-                        }
-                    }
-                }
-                */
-            }
-
-
-            if (LocalPlayer == null)
-            {
-                FindLocalPlayer();
-            }
         }
         else
         {
@@ -291,18 +511,42 @@ public class Gameplay : NetworkBehaviour
             {
                 UIController.current.DisconnectedBox.SetActive(true);
                 GameInProgress = false;
+
+                //Clean up
+                //GameInProgress = false;
+                settingsUpdated = false;
+                LocalPlayer = null;
+                players.Clear();
+                //cardOnTable = -1;
+                //turn = 0;
+                //needToDraw = 0;
+                turnDirection = 1;
+
             }
-            //Clean up
-            //GameInProgress = false;
-            settingsUpdated = false;
-            LocalPlayer = null;
-            players.Clear();
-            //cardOnTable = -1;
-            turn = 0;
-            //needToDraw = 0;
-            turnDirection = 1;
 
             Debug.Log("Disconnected I think");
+        }
+    }
+
+    IEnumerator playerChecks()
+    {
+        for (; ; )
+        {
+            if (NetworkManager.singleton.isNetworkActive)
+            {
+                if (!GameInProgress)
+                    CheckPlayers();
+
+
+                if (LocalPlayer == null)
+                {
+                    FindLocalPlayer();
+                }
+            }
+
+
+
+            yield return new WaitForSeconds(1);
         }
     }
 
@@ -347,29 +591,7 @@ public class Gameplay : NetworkBehaviour
     }
 
 
-    //[Command(requiresAuthority = false)]
-    [Server]
-    public void CmdSettingsChangeEvent()
-    {
-        List<bool> tempSettings = new List<bool>();
-        List<int> tempFrequencies = new List<int>();
-        for (int i = 0; i < UIController.current.settingsList.Count; i++)
-        {
-            tempSettings.Add(UIController.current.settingsList[i].isOn);
-        }
-        for (int i = 0; i < UIController.current.numberFrequencies.Count; i++)
-        {
-            tempFrequencies.Add((int)UIController.current.numberFrequencies[i].value);
-        }
 
-        RpcSettingsChangeEvent(tempSettings, tempFrequencies);
-    }
-
-    [ClientRpc]
-    public void RpcSettingsChangeEvent(List<bool> tempSettings, List<int> tempProbabilities)
-    {
-        UIController.current.settingsChangeConsequence(tempSettings, tempProbabilities);
-    }
 
 
     //Initialisation methods
@@ -377,149 +599,26 @@ public class Gameplay : NetworkBehaviour
     private void Start()
     {
         Physics.gravity = new Vector3(0, -20, 0);
+        settingsUpdated = false;
+        LocalPlayer = null;
+        //players = new PlayerList();
+        players.Clear();
+        //turn = 0;
+        turnDirection = 1;
 
-    }
-
-    /*void GameReadyCheck()
-    {
-        if (!GameInProgress)
-        {
-            foreach (KeyValuePair<uint, NetworkIdentity> kvp in NetworkIdentity.spawned)
-            {
-                Player comp = kvp.Value.GetComponent<Player>();
-
-                //Add if new
-                if (comp != null && !players.Contains(comp))
-                {
-                    players.Add(comp);
-                    if(isServer)
-                        comp.myID = players.Count - 1;
-                }
-            }
-
-            UIController.current.updatePlayerList();
-        }
-    }/*/
-
-
-    void CheckPlayers()
-    {
-        List<Player> tempPlayers = new List<Player>();
-        //tempPlayers = players;
-        //players.Clear();
-
-        foreach (KeyValuePair<uint, NetworkIdentity> kvp in NetworkIdentity.spawned)
-        {
-            Player comp = kvp.Value.GetComponent<Player>();
-
-            //Add if new
-            if (comp != null)
-            {
-                tempPlayers.Add(comp);
-                //players.Add(comp);
-            }
-        }
-        int playerThatLeft = -1;
-
-        for (int i = 0; i < players.Count; i++)
-        {
-            if (!tempPlayers.Contains(players[i]))
-            {
-                players.RemoveAt(i);
-                playerThatLeft = i;
-            }
-        }
-        
-
-        for (int i = 0; i < tempPlayers.Count; i++)
-        {
-            if (!players.Contains(tempPlayers[i]))
-            {
-                players.Add(tempPlayers[i]);
-            }
-        }
-
-        if (isServer) for (int i = 0; i < players.Count; i++)
-            {
-                
-                players[i].myID = i;
-                if (GameInProgress && playerThatLeft >= 0)
-                {
-                    //activePlayers.Remove(playerThatLeft);
-                    activePlayers.Clear();
-                    for (int ii = 0; ii < players.Count; ii++)
-                    {
-                        if (!players[ii].hasFinished)
-                        {
-                            activePlayers.Add(ii);
-                        }
-                    }
-                    turn = activePlayers[Random.Range(0, activePlayers.Count)];
-                }
-            }
-
-        UIController.current.updatePlayerList();
-
-
+        StartCoroutine(playerChecks());
     }
 
 
-    [Command(requiresAuthority = false)]
-    public void CmdCheckPlayers()
-    {
-        CheckPlayers();
-    }
 
-    [Command(requiresAuthority = false)]
-    public void CmdCheckPlayersAfterDelay()
-    {
-        StartCoroutine(checkPlayersAfterDelay());
-    }
-
-
-    IEnumerator checkPlayersAfterDelay()
-    {
-        yield return new WaitForSeconds(0.5f);
-
-        CheckPlayers();
-    }
-
-
-    void FindLocalPlayer()
-    {
-        //Check to see if the player is loaded in yet
-        if (NetworkClient.localPlayer == null)
-            return;
-
-        LocalPlayer = NetworkClient.localPlayer.GetComponent<Player>();
-        //ReadyButtonHandler();
-    }
-
-    [Command(requiresAuthority = false)]
-    public void CmdDisconnectEverybody()
-    {
-        RpcDisconnectEverybody();
-    }
-
-    [ClientRpc]
-    public void RpcDisconnectEverybody()
-    {
-        //UIController.current.HostLeftBox.SetActive(true);
-        UIController.current.SafeLeaveGame();
-    }
-
-    [Command(requiresAuthority = false)]
-    public void CmdDisconnectPlayer(Player playerToDisconnect)
-    {
-        playerToDisconnect.RpcDisconnect();
-
-    }
-
+    #region Game Start Methods
 
     //Game start methods
 
     public void StartGame()
     {
+
+
         List<bool> _settings = new List<bool>();
         int numSettings = UIController.current.settingsList.Count;
         for (int i = 0; i < numSettings; i++)
@@ -532,15 +631,6 @@ public class Gameplay : NetworkBehaviour
             temp.Add((int)UIController.current.numberFrequencies[i].value);
         }
 
-
-        /*for (int i = 0; i < players.Count; i++)
-        {
-            playerCards.Add(new List<int>());
-            playerCardsUpdated.Add(true);
-        }*/
-
-        //mdSettingsChangeEvent();
-
         CmdStartGame(_settings, temp);
     }
 
@@ -549,31 +639,16 @@ public class Gameplay : NetworkBehaviour
     [Command(requiresAuthority = false)]
     public void CmdStartGame(List<bool> _settings, List<int> randomCardFrequencies)
     {
-        /*if (GameInProgress)
-        {
-            return;
-        }*/
+
         RpcSetGameUI();
 
-        turnTimeOutCounter = 0;
-
-        playerScores.Clear();
-        playerScores.Add(0);
-        playerScores.Add(0);
-        playerScores.Add(0);
-        playerScores.Add(0);
-        //turn = Random.Range(0,players.Count-1);
+        //turnTimeOutCounter = 0;
 
         turnDirection = 1;
 
         GameInProgress = true;
 
-        //finishedPlayers.Clear();
-        activePlayers.Clear();
-        for (int i = 0; i < players.Count; i++)
-        {
-            activePlayers.Add(i);
-        }
+        winOrderCounter = 0;
 
         RpcSetPlayerHands();
 
@@ -584,30 +659,33 @@ public class Gameplay : NetworkBehaviour
 
 
 
+
+
         int _firstcard = getCardValue(Random.Range(0, 4), Random.Range(0, 10));
         firstcard = _firstcard;
         //RpcSetCardOnTableBuffer(cardOnTable);
         RpcDropFirstCard(firstcard);
         RpcSetColourIndicator(Sceneobjects.current.CardColours[getCardColour(firstcard)], turnDirection);
 
-        turn = Random.Range(0, activePlayers.Count);
+        //turn = Random.Range(0, activePlayers.Count);
+        turnPlayer = players.randomTurnPlayer();
+        //firstWinnerSetInClients = false;
 
-
-        foreach (Player t in players)
-        {
-            t.myturn = false;
-
-            //t.cardOnTableBuffer = cardOnTable;
-            t.RpcGameStartSetup();
-
-            //Debug.Log("Autoaddcards settings is " + settings[0]);
-        }
 
         firstWinnerSet = false;
 
         for (int i = 0; i < players.Count; i++)
         {
-            if (i == activePlayers[turn])
+            players[i].serverCards.Clear();
+            players[i].RpcGameStartSetup();
+            players[i].active = true;
+            for (int ii = 0; ii < Sceneobjects.current.numStartCards; ii++)
+            {
+                players[i].serverCards.Add(getRandomCard);
+            }
+            players[i].RpcSetCards(players[i].serverCards, -1);
+
+            if (players[i] == turnPlayer)
             {
                 players[i].RpcTurnStart(true, 0, firstcard);
             }
@@ -616,7 +694,7 @@ public class Gameplay : NetworkBehaviour
                 players[i].RpcTurnStart(false, 0, firstcard);
             }
         }
-        firstWinnerSetInClients = false;
+
 
         CmdUpdatePlayerNames();
     }
@@ -640,86 +718,51 @@ public class Gameplay : NetworkBehaviour
         tcard.name = tcardp.Value.ToString();
         tableCardsR.Add(tcard);
 
-
-        //CmdUpdatePlayerNames();
     }
 
     [ClientRpc]
     public void RpcSetPlayerHands()
     {
-        
-        int myIndex = players.IndexOf(LocalPlayer);
-        /*Sceneobjects.current.SwapButtons[1].gameObject.SetActive(true);
-        Sceneobjects.current.SwapButtons[2].gameObject.SetActive(true);
-        Sceneobjects.current.SwapButtons[3].gameObject.SetActive(true);*/
 
+        int myIndex = players.IndexOf(LocalPlayer);
 
         if (players.Count == 1)
         {
-
             LocalPlayer.hand = Sceneobjects.current.Hands[0];
-            /*LocalPlayer.myNameTag = Sceneobjects.current.Names[0];
-            LocalPlayer.myNameText = Sceneobjects.current.NameTexts[0];
-            LocalPlayer.myNameText.text = LocalPlayer.playerName;*/
         }
         else
         if (players.Count == 2)
         {
-            /*Sceneobjects.current.Names[1].gameObject.SetActive(false);
-            Sceneobjects.current.Names[3].gameObject.SetActive(false);
-
-            /*Sceneobjects.current.SwapButtons[1].gameObject.SetActive(false);
-            Sceneobjects.current.SwapButtons[3].gameObject.SetActive(false);*/
-
             for (int i = 0; i < 2; i++)
             {
                 if (i == myIndex)
                 {
                     players[i].hand = Sceneobjects.current.Hands[0];
-                   /* players[i].myNameTag = Sceneobjects.current.Names[0];
-                    players[i].myNameText = Sceneobjects.current.NameTexts[0];
-                    players[i].myNameText.text = players[i].playerName;*/
                 }
                 else
                 {
                     players[i].hand = Sceneobjects.current.Hands[2];
-                    /*players[i].myNameTag = Sceneobjects.current.Names[2];
-                    players[i].myNameText = Sceneobjects.current.NameTexts[2];
-                    players[i].myNameText.text = players[i].playerName;*/
                 }
             }
         }
         else
         if (players.Count == 3)
         {
-            /*Sceneobjects.current.Names[2].gameObject.SetActive(false);
-
-            /*Sceneobjects.current.SwapButtons[2].gameObject.SetActive(false);*/
-
             for (int i = 0; i < 3; i++)
             {
                 if (i == myIndex)
                 {
                     players[i].hand = Sceneobjects.current.Hands[0];
-                   /* players[i].myNameTag = Sceneobjects.current.Names[0];
-                    players[i].myNameText = Sceneobjects.current.NameTexts[0];
-                    players[i].myNameText.text = players[i].playerName;*/
                 }
                 else
                 if (i == (myIndex + 1) % 3)
                 {
                     players[i].hand = Sceneobjects.current.Hands[1];
-                   /* players[i].myNameTag = Sceneobjects.current.Names[1];
-                    players[i].myNameText = Sceneobjects.current.NameTexts[1];
-                    players[i].myNameText.text = players[i].playerName;*/
                 }
                 else
                 if (i == (myIndex + 2) % 3)
                 {
                     players[i].hand = Sceneobjects.current.Hands[3];
-                    /*players[i].myNameTag = Sceneobjects.current.Names[3];
-                    players[i].myNameText = Sceneobjects.current.NameTexts[3];
-                    players[i].myNameText.text = players[i].playerName;*/
                 }
             }
 
@@ -732,38 +775,26 @@ public class Gameplay : NetworkBehaviour
                 if (i == myIndex)
                 {
                     players[i].hand = Sceneobjects.current.Hands[0];
-                    /*players[i].myNameTag = Sceneobjects.current.Names[0];
-                    players[i].myNameText = Sceneobjects.current.NameTexts[0];
-                    players[i].myNameText.text = players[i].playerName;*/
                 }
                 else
                 if (i == (myIndex + 1) % 4)
                 {
                     players[i].hand = Sceneobjects.current.Hands[1];
-                    /*players[i].myNameTag = Sceneobjects.current.Names[1];
-                    players[i].myNameText = Sceneobjects.current.NameTexts[1];
-                    players[i].myNameText.text = players[i].playerName;*/
                 }
                 else
                 if (i == (myIndex + 2) % 4)
                 {
                     players[i].hand = Sceneobjects.current.Hands[2];
-                   /* players[i].myNameTag = Sceneobjects.current.Names[2];
-                    players[i].myNameText = Sceneobjects.current.NameTexts[2];
-                    players[i].myNameText.text = players[i].playerName;*/
                 }
                 else
                 if (i == (myIndex + 3) % 4)
                 {
                     players[i].hand = Sceneobjects.current.Hands[3];
-                    /*players[i].myNameTag = Sceneobjects.current.Names[3];
-                    players[i].myNameText = Sceneobjects.current.NameTexts[3];
-                    players[i].myNameText.text = players[i].playerName;*/
                 }
             }
         }
 
-        for(int i = 0; i < players.Count; i++)
+        for (int i = 0; i < players.Count; i++)
         {
             players[i].hand.swapButton.SetActive(true);
             players[i].hand.resetAll();
@@ -771,21 +802,38 @@ public class Gameplay : NetworkBehaviour
 
     }
 
+    #endregion
 
-    List<int> playerScores = new List<int>();
+
 
     //Turn methods
+
     [Server]
-    public void PassTurnToNextPlayer(int drawCards = 0, int skip = 0, int reverse = 0, int passCard = -1, int swapTarget = -1, bool Iwin = false, bool passed = false)
+    public void PassTurnToNextPlayer(int drawCards = 0, int skip = 0, int reverse = 0, int passCard = -1, int swapTarget = -1, bool passed = false, List<int> cards = null)
     {
+        bool iwin = false;
+        if(skip < 0)
+        {
+            iwin = true;
+            skip = 0;
+        }
+
         server_drawCards = drawCards;
         server_passCard = passCard;
 
+        turnPlayer.serverCards = cards;
 
-        for (int i = 0; i < reverse; i++)
+        Debug.Log(reverse);
+        
+        if(reverse % 2 == 1)
         {
             turnDirection = -turnDirection;
         }
+
+        /*for (int iii = 0; iii < reverse; i++)
+        {
+            turnDirection = -turnDirection;
+        }*/
 
         Color temp = Sceneobjects.current.CardColours[getCardColour(passCard)];
         RpcSetColourIndicator(temp, turnDirection);
@@ -805,55 +853,75 @@ public class Gameplay : NetworkBehaviour
         {
             if (settings[13])
             {
-                if (activePlayers.Count == 2)
+                if (players.numActivePlayers == 2)
                 {
                     skip = 1;
                 }
             }
         }
-        int prevturn = turn;
+        /*int prevturn = turn;
         int prevTurnIndex = activePlayers[turn];
 
-        turn = (turn + (1 + skip) * turnDirection);
+        turn = (turn + (1 + skip) * turnDirection);*/
 
-        if (Iwin)
+        if (iwin)
         {
             //Player turnPlayer = players[activePlayers[turn]];
+            Player winner = turnPlayer;
+            players.deactivatePlayer(winner);
+            winner.active = false;
 
-            int winner = activePlayers[prevturn];
-            activePlayers.Remove(winner);
-            int remaining = activePlayers.Count;
-            players[winner].hasFinished = true;
+            /*int winner = activePlayers[prevturn];
+            activePlayers.Remove(winner);*/
+            int remaining = players.Count - players.numActivePlayers;
+            //players[winner].hasFinished = true;
+            winOrderCounter++;
+            winner.winOrder = winOrderCounter;
 
 
             if (!firstWinnerSet)
             {
-                firstWinner = players[winner].playerName;
+                firstWinner = winner.playerName;
                 //players[winner].hand.firstPlaceIcon.SetActive(true);
                 firstWinnerSet = true;
             }
 
             if (!settings[22])
             {
-                players[winner].wins += remaining;
-                playerScores[winner] += remaining;
-
-                if (remaining <= 1 || !settings[15])
-                {
-                    GameInProgress = false;
-                    RpcEndGame(winner, firstWinner, playerScores);
-                }
+                winner.score += players.Count - players.numActivePlayers;
             }
             else
             {
-                for (int i = 0; i < activePlayers.Count; i++)
+                for (int i = 0; i < players.Count; i++)
                 {
-                    players[activePlayers[i]].RpcUpdateCardShare();
+                    if (players[i] != winner && players[i].active)
+                    {
+                        int tempscore = 0;
+                        for (int ii = 0; ii < players[i].serverCards.Count; ii++)
+                        {
+                            int cardnum = getCardNumber(players[i].serverCards[ii]);
+                            if (cardnum < 10)
+                            {
+                                tempscore += cardnum;
+                            }
+                            else if (cardnum < 13)
+                            {
+                                tempscore += 20;
+                            }
+                            else
+                            {
+                                tempscore += 50;
+                            }
+                        }
+                        winner.score += tempscore;
+                    }
                 }
-                StartCoroutine(setPlayerScores(winner, remaining));
             }
-
-            //turn = activePlayers.IndexOf(turnPlayer.myID);
+            if (remaining <= 1 || !settings[15])
+            {
+                GameInProgress = false;
+                RpcEndGame(firstWinner, players.playerScores());
+            }
         }
 
         if (!GameInProgress)
@@ -861,7 +929,7 @@ public class Gameplay : NetworkBehaviour
             return;
         }
 
-        int n = activePlayers.Count;
+        /*int n = activePlayers.Count;
         if (turn < 0)
         {
             while (turn < 0)
@@ -876,7 +944,7 @@ public class Gameplay : NetworkBehaviour
             {
                 turn -= n;
             }
-        }
+        }*/
 
 
         //Player playerWithTurn = players[activePlayers[turn]];
@@ -884,69 +952,39 @@ public class Gameplay : NetworkBehaviour
 
         if (settings[17] && !passed && getCardNumber(passCard) == 0)
         {
-            for (int i = 0; i < activePlayers.Count; i++)
+            //StartCoroutine(swapCardsAround());
+            List<Player> tempActivePlayers = players.activePlayers();
+            for (int i = 0; i < players.Count; i++)
             {
-                players[activePlayers[i]].RpcUpdateCardShare();
-            }
-            StartCoroutine(swapCardsAround());
-        }
-        else if (settings[16] && getCardNumber(passCard) == 7 && activePlayers.Count > 1 && !passed)
-        {
-            if(swapTarget == -1)
-            {
-                swapTarget = activePlayers[Random.Range(0, activePlayers.Count)];
-            }
-
-
-            for (int i = 0; i < activePlayers.Count; i++)
-            {
-                players[activePlayers[i]].RpcUpdateCardShare();
-            }
-            StartCoroutine(swapCards(prevTurnIndex, swapTarget));
-        }
-        else
-        {
-            nextTurn();
-        }
-    }
-
-    int turnTimeOutCounter = 0;
-    IEnumerator turnTimeOut()
-    {
-        int temp = turnTimeOutCounter;
-        yield return new WaitForSeconds(100);
-        if(temp == turnTimeOutCounter)
-        players[activePlayers[turn]].RpcDisconnect();
-    }
-
-    void IncrementTurn(int skip = 0)
-    {
-        turn = (turn + (1 + skip) * turnDirection);
-        int n = activePlayers.Count;
-        if (turn < 0)
-        {
-            while (turn < 0)
-            {
-                turn += n;
+                int ti = normaliseForIndex(i - turnDirection, tempActivePlayers.Count);
+                tempActivePlayers[i].RpcSetCards(players[ti].serverCards, tempActivePlayers[ti].myID);
             }
         }
-
-        if (turn >= n)
+        else if (settings[16] && getCardNumber(passCard) == 7 && players.numActivePlayers > 1 && !passed)
         {
-            while (turn >= n)
+            if (swapTarget == -1)
             {
-                turn -= n;
+                swapTarget = players.randomActivePlayer().myID;
             }
+
+            //StartCoroutine(swapCards(turnPlayer.myID, swapTarget));
+
+            turnPlayer.RpcSetCards(players[swapTarget].serverCards, swapTarget);
+            players[swapTarget].RpcSetCards(turnPlayer.serverCards, turnPlayer.myID);
+        }
+
+        {
+            nextTurn(skip);
         }
     }
 
 
-
-    public void nextTurn()
+    public void nextTurn(int skips)
     {
+        turnPlayer = players.nextTurnPlayer(skips, turnDirection);
         for (int i = 0; i < players.Count; i++)
         {
-            if (i == activePlayers[turn])
+            if (players[i] == turnPlayer)
             {
                 players[i].RpcTurnStart(true, server_drawCards, server_passCard);
             }
@@ -956,174 +994,21 @@ public class Gameplay : NetworkBehaviour
             }
         }
 
-        StopCoroutine(turnTimeOut());
+        /*StopCoroutine(turnTimeOut());
         turnTimeOutCounter++;
-        StartCoroutine(turnTimeOut());
+        StartCoroutine(turnTimeOut());*/
     }
 
     public void selectSwap(Hand playerHand)
     {
         UIController.current.SelectSwapBox.SetActive(false);
         int theTarget = -1;
-        if(playerHand != null)
+        if (playerHand != null)
         {
             theTarget = playerHand.myPlayer.myID;
         }
         LocalPlayer.selectSwap(theTarget);
         return;
-    }
-
-   /* int sourcePlayer;
-    int destinationPlayer;*/
-
-
-    /*[Command(requiresAuthority = false)]
-    void CmdSetSourceAndDestination(int source, int destination)
-    {
-
-        /*players[source].RpcUpdateCardShare();
-        players[destination].RpcUpdateCardShare();* /
-        /*sourcePlayer = source;
-        destinationPlayer = destination;* /
-        if(destination < 0)
-        {
-            destination = activePlayers[Random.Range(0, activePlayers.Count)];
-        }
-
-        for (int i = 0; i < activePlayers.Count; i++)
-        {
-            players[activePlayers[i]].RpcUpdateCardShare();
-        }
-        //waitingToSwapCards = true;
-        StartCoroutine(swapCards(source, destination));
-    }*/
-
-    IEnumerator setPlayerScores(int winner, int remaining)
-    {
-        for (int safetycounter = 0; safetycounter < 100; safetycounter++)
-        {
-            bool waitingForPlayerCards = false;
-
-            for (int i = 0; i < players.Count; i++)
-            {
-                if (players[i].cardShareUpdated == false)
-                {
-                    waitingForPlayerCards = true;
-                    break;
-                }
-            }
-
-
-            if (!waitingForPlayerCards)
-            {
-                for(int i = 0; i < activePlayers.Count; i++)
-                {
-                    if(players[activePlayers[i]].myID != winner)
-                    {
-                        int tempscore = 0;
-                        for(int ii = 0; ii < players[activePlayers[i]].cardShare.Count; ii++)
-                        {
-                            if(players[activePlayers[i]].cardShare[ii] < 10)
-                            {
-                                tempscore += players[activePlayers[i]].cardShare[ii];
-                            }else if(players[activePlayers[i]].cardShare[ii] < 13)
-                            {
-                                tempscore += 20;
-                            }
-                            else
-                            {
-                                tempscore += 50;
-                            }
-                        }
-                        //playerScores[activePlayers[i]] = tempscore;
-                        playerScores[winner] += tempscore;
-                    }
-                }
-                break;
-            }
-
-
-            yield return new WaitForSeconds(0.1f);
-        }
-
-        if (remaining <= 1 || !settings[15])
-        {
-            GameInProgress = false;
-            RpcEndGame(winner, firstWinner, playerScores);
-        }
-
-    }
-
-    IEnumerator swapCardsAround()
-    {
-        waitingToSwapCardsAround = true;
-        for (int safetycounter = 0; safetycounter < 30; safetycounter++)
-        {
-            bool waitingForPlayerCards = false;
-
-            for (int i = 0; i < activePlayers.Count; i++)
-            {
-                if (players[activePlayers[i]].cardShareUpdated == false)
-                {
-                    waitingForPlayerCards = true;
-                    break;
-                }
-            }
-
-
-            if (!waitingForPlayerCards || safetycounter >= 29)
-            {
-                for (int i = 0; i < activePlayers.Count; i++)
-                {
-                    int ti = normaliseForIndex(i - turnDirection, activePlayers.Count);
-                    players[activePlayers[i]].RpcSetCards(players[activePlayers[ti]].cardShare, activePlayers[ti]);
-                }
-                break;
-            }
-
-
-            yield return new WaitForSeconds(0.1f);
-        }
-
-        waitingToSwapCardsAround = false;
-        nextTurn();
-    }
-    IEnumerator swapCards(int ss, int dd)
-    {
-        waitingToSwapCards = true;
-        for (int safetycounter = 0; safetycounter < 30; safetycounter++)
-        {
-            if (waitingToSwapCards)
-            {
-                bool waitingForPlayerCards = false;
-
-
-                for (int i = 0; i < activePlayers.Count; i++)
-                {
-                    if (players[activePlayers[i]].cardShareUpdated == false)
-                    {
-                        waitingForPlayerCards = true;
-                        break;
-                    }
-                }
-
-
-
-                if (!waitingForPlayerCards || safetycounter >= 29)
-                {
-                    players[ss].RpcSetCards(players[dd].cardShare, dd);
-                    players[dd].RpcSetCards(players[ss].cardShare, ss);
-
-                    waitingToSwapCards = false;
-                    break;
-                }
-            }
-
-            yield return new WaitForSeconds(0.1f);
-        }
-
-        waitingToSwapCards = false;
-        nextTurn();
     }
 
     int normaliseForIndex(int index, int count)
@@ -1142,22 +1027,22 @@ public class Gameplay : NetworkBehaviour
     string firstWinner = "[if you see this, something went wrong]";
     bool firstWinnerSet = false;
 
-    [SyncVar]
-    public bool firstWinnerSetInClients = false;
+    /*[SyncVar]
+    public bool firstWinnerSetInClients = false;*/
 
 
     [ClientRpc]
-    public void RpcEndGame(int playerid, string _firstwinner, List<int> _playerScores)
+    public void RpcEndGame(string _firstwinner, List<int> _playerScores)
     {
-        
+
 
 
         UIController.current.winText.text = _firstwinner + " is victorious!";
 
-        for (int i = 0; i < UIController.current.playerWinStatList.Count; i++)
+        /*for (int i = 0; i < UIController.current.playerWinStatList.Count; i++)
         {
 
-            /*UIController.current.playerWinStatList[i].text = players[i].playerName + ": " + players[i].wins.ToString();*/
+
             bool playerfound = false;
 
             for(int ii = 0; ii < players.Count; ii++){ 
@@ -1179,9 +1064,21 @@ public class Gameplay : NetworkBehaviour
                 UIController.current.playerWinStatList[i].text = "-";
             }
         }
+        UIController.current.WinScreen.SetActive(true);*/
+
+        for (int i = 0; i < players.Count; i++)
+        {
+            for (int ii = 0; ii < _playerScores.Count; ii++)
+            {
+                if (players[i].myID == ii)
+                {
+                    players[i].hand.winText.text = players[i].playerName + ": " + _playerScores[ii].ToString();
+                }
+            }
+        }
+
         UIController.current.WinScreen.SetActive(true);
-        
-        
+
 
     }
 
@@ -1189,7 +1086,7 @@ public class Gameplay : NetworkBehaviour
     public void RpcSetColourIndicator(Color t, int td)
     {
         Sceneobjects.current.WildColourIndicator.color = t;
-        Sceneobjects.current.turnDirectionIndicator.localEulerAngles = new Vector3(90 - 90*td, 0, 0);
+        Sceneobjects.current.turnDirectionIndicator.localEulerAngles = new Vector3(90 - 90 * td, 0, 0);
     }
 
     [Command(requiresAuthority = false)]
@@ -1234,9 +1131,9 @@ public class Gameplay : NetworkBehaviour
 
     public Player getPlayerWithId(int theid)
     {
-        for(int i = 0; i < players.Count; i++)
+        for (int i = 0; i < players.Count; i++)
         {
-            if(players[i].myID == theid)
+            if (players[i].myID == theid)
             {
                 return players[i];
             }
@@ -1259,12 +1156,9 @@ public class Gameplay : NetworkBehaviour
     //Helper methods
     public int getCardNumber(int t)
     {
-        int num = 0;
 
-        {
-            num = t % 15;
-        }
-        return num;
+
+        return t % 15;
     }
 
     public int getCardColour(int t)
@@ -1283,3 +1177,5 @@ public class Gameplay : NetworkBehaviour
     }
 
 }
+
+
