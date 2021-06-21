@@ -289,7 +289,7 @@ public class Player : NetworkBehaviour
             myCards.Clear();
             skip = 0;
             reverse = 0;
-
+            winOrder = 0;
             numCardDrawn = 0;
             numCardDrawnWithoutObligation = 0;
 
@@ -694,11 +694,11 @@ public class Player : NetworkBehaviour
 
         if (myCards.Count <= 0)
         {
-            CmdPassTurnToNext(passDraw, -1, reverse, passCard, swapTarget, false, getCards());
+            CmdPassTurnToNext(passDraw, skip, reverse, passCard, swapTarget, false, true, getCards());
         }
         else
         {
-            CmdPassTurnToNext(passDraw, skip, reverse, passCard, swapTarget, false, getCards());
+            CmdPassTurnToNext(passDraw, skip, reverse, passCard, swapTarget, false, false, getCards());
         }
 
         colourSelected = false;
@@ -959,15 +959,15 @@ public class Player : NetworkBehaviour
         {
             //cardShareUpdated = false;
             CmdPlaceNCardsForAllNonLocals(myCards.Count);
-            CmdPassTurnToNext(passDraw, skip, reverse, passCard, swapTarget, true, getCards());
+            CmdPassTurnToNext(passDraw, skip, reverse, passCard, swapTarget, true, false, getCards());
             selectionEnabled = false;
         }
     }
 
     [Command]
-    public void CmdPassTurnToNext(int _passDraw, int _skip, int _reverse, int _passCard, int _swapTarget, bool _passed, List<int> _cards)
+    public void CmdPassTurnToNext(int _passDraw, int _skip, int _reverse, int _passCard, int _swapTarget, bool _passed, bool _iwin, List<int> _cards)
     {
-        Gameplay.current.PassTurnToNextPlayer(_passDraw, _skip, _reverse, _passCard, _swapTarget, _passed, _cards);
+        Gameplay.current.PassTurnToNextPlayer(_passDraw, _skip, _reverse, _passCard, _swapTarget, _passed, _iwin, _cards);
     }
 
 

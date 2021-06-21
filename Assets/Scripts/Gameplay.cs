@@ -55,6 +55,16 @@ public class Gameplay : NetworkBehaviour
     {
         public List<Player> theList = new List<Player>();
 
+        public void ResetALL()
+        {
+            _turn = 0;
+            numInactivePlayers = 0;
+            for(int i = 0; i < Count; i++)
+            {
+                theList[i].active = true;
+            }
+        }
+
         public int Count
         {
             get
@@ -130,7 +140,7 @@ public class Gameplay : NetworkBehaviour
 
         public Player nextTurnPlayer(int _skip, int _turnDirection)
         {
-            if (this.Count <= 0)
+            if (Count <= 0)
             {
                 return null;
             }
@@ -471,15 +481,6 @@ public class Gameplay : NetworkBehaviour
         }
     }
 
-
-
-
-
-
-    /*[SyncVar]
-    public int turn = 0;*/
-
-
     //turn
     int server_drawCards = 0;
     int server_passCard = 0;
@@ -642,6 +643,7 @@ public class Gameplay : NetworkBehaviour
 
         RpcSetGameUI();
 
+        players.ResetALL();
         //turnTimeOutCounter = 0;
 
         turnDirection = 1;
@@ -809,19 +811,19 @@ public class Gameplay : NetworkBehaviour
     //Turn methods
 
     [Server]
-    public void PassTurnToNextPlayer(int drawCards = 0, int skip = 0, int reverse = 0, int passCard = -1, int swapTarget = -1, bool passed = false, List<int> cards = null)
+    public void PassTurnToNextPlayer(int drawCards = 0, int skip = 0, int reverse = 0, int passCard = -1, int swapTarget = -1, bool passed = false, bool iwin = false, List<int> cards = null)
     {
-        bool iwin = false;
-        if(skip < 0)
-        {
-            iwin = true;
-            skip = 0;
-        }
-
         server_drawCards = drawCards;
         server_passCard = passCard;
 
-        turnPlayer.serverCards = cards;
+        /*turnPlayer.serverCards.Clear();
+
+        for(int i = 0; i < cards.Count; i++)
+        {
+            turnPlayer.serverCards.Add(cards[i]);
+        }*/
+
+        turnPlayer.serverCards = new List<int>(cards);
 
         Debug.Log(reverse);
         
@@ -842,7 +844,7 @@ public class Gameplay : NetworkBehaviour
         {
             if (settings[12])
             {
-                if (players.Count == 2)
+                if (players.numActivePlayers == 2 || players.Count == 2)
                 {
                     skip = 1;
                 }
@@ -853,16 +855,13 @@ public class Gameplay : NetworkBehaviour
         {
             if (settings[13])
             {
-                if (players.numActivePlayers == 2)
+                if (players.numActivePlayers == 2 || players.Count == 2)
                 {
                     skip = 1;
+                    
                 }
             }
         }
-        /*int prevturn = turn;
-        int prevTurnIndex = activePlayers[turn];
-
-        turn = (turn + (1 + skip) * turnDirection);*/
 
         if (iwin)
         {
@@ -929,36 +928,23 @@ public class Gameplay : NetworkBehaviour
             return;
         }
 
-        /*int n = activePlayers.Count;
-        if (turn < 0)
-        {
-            while (turn < 0)
-            {
-                turn += n;
-            }
-        }
-
-        if (turn >= n)
-        {
-            while (turn >= n)
-            {
-                turn -= n;
-            }
-        }*/
-
-
-        //Player playerWithTurn = players[activePlayers[turn]];
-
-
         if (settings[17] && !passed && getCardNumber(passCard) == 0)
         {
             //StartCoroutine(swapCardsAround());
             List<Player> tempActivePlayers = players.activePlayers();
-            for (int i = 0; i < players.Count; i++)
+            List<List<int>> tttempCards = new List<List<int>>();
+
+            for (int i = 0; i < tempActivePlayers.Count; i++)
+            {
+                tttempCards.Add(new List<int>(tempActivePlayers[i].serverCards));
+            }
+
+            for (int i = 0; i < tempActivePlayers.Count; i++)
             {
                 int ti = normaliseForIndex(i - turnDirection, tempActivePlayers.Count);
-                tempActivePlayers[i].RpcSetCards(players[ti].serverCards, tempActivePlayers[ti].myID);
+                tempActivePlayers[i].RpcSetCards(tttempCards[ti], tempActivePlayers[ti].myID);
             }
+
         }
         else if (settings[16] && getCardNumber(passCard) == 7 && players.numActivePlayers > 1 && !passed)
         {
@@ -968,9 +954,12 @@ public class Gameplay : NetworkBehaviour
             }
 
             //StartCoroutine(swapCards(turnPlayer.myID, swapTarget));
+            List<int> tempCards = new List<int>(players[swapTarget].serverCards);
 
-            turnPlayer.RpcSetCards(players[swapTarget].serverCards, swapTarget);
             players[swapTarget].RpcSetCards(turnPlayer.serverCards, turnPlayer.myID);
+
+            turnPlayer.RpcSetCards(tempCards, swapTarget);
+            
         }
 
         {

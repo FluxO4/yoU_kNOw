@@ -305,7 +305,7 @@ public class UIController : ControllerBase<UIController>
             //Sceneobjects.current.netManager.StopHost();
         }
 
-        
+        ConnectingBox.SetActive(false);
     }
 
     public void ReloadScene()
